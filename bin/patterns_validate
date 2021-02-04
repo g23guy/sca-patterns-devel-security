@@ -1,0 +1,60 @@
+#!/bin/bash
+
+SVER='1.0.4'
+clear
+echo "#####################################################"
+echo "#  Validating Proposed SCA Patterns"
+echo "#  Version: $SVER"
+echo "#####################################################"
+BASE="/home/opt/chksecurity/patterns"
+PAT_ERROR="/home/opt/chksecurity/errors"
+PAT_DUPS="/home/opt/chksecurity/duplicates"
+CURRENT_PATDIR="/home/opt/gitwork/"
+CURRENT_PATFILE="${PAT_DUPS}/_current_pattern_list.txt"
+
+if [[ -n $1 ]]; then
+	BASE="$1"
+fi
+echo "# Validating patterns in $BASE"
+echo "# Use $(basename $0) [/path/to/patterns]"
+echo
+CNT=1
+FATALS=0
+DUPLICATES=0
+TOTAL=$(ls -1 ${BASE}/*\.py ${BASE}/*\.pl 2>/dev/null | wc -l)
+SIZE=${#TOTAL}
+
+FORMAT="%0${SIZE}d of %0${SIZE}d => %s\n"
+if (( TOTAL > 0 )); then
+	echo "# Generating pre-existing pattern list"
+	find ${CURRENT_PATDIR} -type f | grep /patterns/ &> $CURRENT_PATFILE
+	cd $BASE
+	for i in $(ls -1 ${BASE}/*\.py ${BASE}/*\.pl 2>/dev/null)
+	do
+		#echo "$i => $CNT of $TOTAL"
+		printf "$FORMAT" $CNT $TOTAL "$i"
+		FILE=$(basename $i)
+		if grep ${FILE} ${CURRENT_PATFILE} &> /dev/null; then
+			echo Duplicate
+			mv $i $PAT_DUPS
+			(( DUPLICATES++ ))
+		else
+			OUTPUT=$(pat $i 2>/dev/null | grep Fatal\:)
+			RESULT=$(echo "$OUTPUT" | awk '{print $2}' | cut -d\, -f1)
+			if (( RESULT > 0 )); then
+				(( FATALS++ ))
+				echo "$OUTPUT"
+				mv $i $PAT_ERROR
+			fi
+#			echo "$OUTPUT"
+		fi
+		(( CNT++ ))
+	done
+	echo
+	echo "Invalid Patterns:  $FATALS"
+	echo "Dulicate Patterns: $DUPLICATES"
+else
+	echo "No patterns available for validation, run chksecurity"
+fi
+echo
+

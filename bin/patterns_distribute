@@ -1,0 +1,53 @@
+#!/bin/bash
+
+SVER='0.0.4'
+BASE_CURRENT='/home/opt/gitwork'
+BASE_NEW='/home/opt/chksecurity/patterns'
+title() {
+	echo "##################################"
+	echo "# Distribute Patterns v${SVER}"
+	echo "##################################"
+	echo
+}
+
+SLE10="sle10sp4 sle10sp3 sle10sp2 sle10sp1 sle10sp0"
+SLE11="sle11sp4 sle11sp3 sle11sp2 sle11sp1 sle11sp0"
+SLE12="sle12sp5 sle12sp4 sle12sp3 sle12sp2 sle12sp1 sle12sp0"
+SLE15="sle15sp5 sle15sp4 sle15sp3 sle15sp2 sle15sp1 sle15sp0"
+TOTAL=0
+clear
+title
+if [[ -d $BASE_NEW ]]; then
+	cd $BASE_NEW
+else
+	echo "Error: Directory not found - $BASE_NEW"
+	echo "Run chksecurity"
+	echo
+	exit 1
+fi
+for i in $SLE15 $SLE12 $SLE11 $SLE10
+do
+	COUNT=0
+	printf "%s: " $i
+	NUM=$(echo $i | sed -e "s/sle//g;s/sp/\./g")
+	SLE_DIR=$(echo $i | sed -e "s/sp[[:digit:]]//g")
+	PAT_DIR="${BASE_CURRENT}/sca-patterns-${SLE_DIR}/patterns/SLE/${i}"
+	for FILTER in "_${NUM}.py" "_${NUM}.ltss.py"
+	do
+		BASECNT=$(ls -1 *${FILTER} 2>/dev/null | wc -l)
+		COUNT=$(( COUNT + BASECNT ))
+		if (( BASECNT > 0 )); then
+			if [[ -d $PAT_DIR ]]; then
+				mv *${FILTER} ${PAT_DIR}/
+			else
+				echo "ERROR: Directory not found: $PAT_DIR"
+			fi
+		fi
+	done
+	echo $COUNT
+	TOTAL=$(( TOTAL + COUNT ))
+done
+echo
+echo "Total: $TOTAL"
+echo
+

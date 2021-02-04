@@ -1,0 +1,219 @@
+#!/bin/bash
+SVER="1.1.4"
+##############################################################################
+# chksecurity - Security Advisory Announcement Checker
+# Copyright (C) 2021 SUSE LLC
+#
+# Description:  Checks and creates SCA patterns for advisories
+# Modified:     2021 Feb 03
+#
+##############################################################################
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; version 2 of the License.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+#  Authors/Contributors:
+#     Jason Record <jason.record@suse.com>
+#
+##############################################################################
+
+
+#clear
+echo "##############################################################"
+echo "# Check Security Annoucements v$SVER"
+echo "##############################################################"
+# Usage: chksecurity [http://<url>|YYYY-MM|MM]
+#
+#URL_BASE="https://lists.opensuse.org/opensuse-security-announce"
+URL_BASE="https://lists.suse.com/pipermail/sle-security-updates"
+URL_MONTH=$(date +%B)
+URL_YEAR=$(date +%Y)
+URL="${1}"
+HOST=''
+BASE='/home/opt/gitwork'
+PATDIR_BASE='/home/opt/chksecurity'
+PATDIR="${PATDIR_BASE}/patterns"
+PAT_ERROR="${PATDIR_BASE}/errors"
+PAT_DUPS="${PATDIR_BASE}/duplicates"
+PENDING=0
+SUCCESS=0
+FAILURES=0
+SKIPPED=0
+UNKNOWN=0
+
+getMonthURL() {
+	CHK_MONTH=$1
+	case $CHK_MONTH in
+	01) URL_MONTH="January" ;;
+	02) URL_MONTH="February" ;;
+	03) URL_MONTH="March" ;;
+	04) URL_MONTH="April" ;;
+	05) URL_MONTH="May" ;;
+	06) URL_MONTH="June" ;;
+	07) URL_MONTH="July" ;;
+	08) URL_MONTH="August" ;;
+	09) URL_MONTH="September" ;;
+	10) URL_MONTH="October" ;;
+	11) URL_MONTH="November" ;;
+	12) URL_MONTH="December" ;;
+	esac
+}
+
+URL_DEFAULT="${URL_BASE}/${URL_YEAR}-${URL_MONTH}/"
+for i in $PATDIR $PAT_ERROR $PAT_DUPS
+do
+	[[ -d $i ]] || mkdir -p $i
+done
+cd $BASE
+
+# Determine Security announcement URL
+if [[ -z "$URL" ]]
+then
+	URL=${URL_DEFAULT}
+else
+	if echo $URL | grep 'http://' &> /dev/null; then
+		echo untouched
+	elif grep '-' <<< $URL &> /dev/null; then
+		if (( ${#URL} > 7 )); then
+			URL="${URL_BASE}/${URL}/"
+		else
+			TMP_DATE=$(awk -F\/ '{print $NF}' <<< $URL)
+			TMP_URL_MONTH=$(cut -d\- -f2 <<< $TMP_DATE)
+			URL_YEAR=$(cut -d\- -f1 <<< $TMP_DATE)
+			getMonthURL $TMP_URL_MONTH
+			URL="${URL_BASE}/${URL_YEAR}-${URL_MONTH}/"
+		fi
+	elif (( ${#URL} == 2 )); then
+		#Assume a month for this year was given on the command line
+		getMonthURL ${URL}
+		URL="${URL_BASE}/${URL_YEAR}-${URL_MONTH}/"
+	elif (( ${#URL} == 4 )); then
+		#Assume a year was given on the command line
+		URL="${URL_BASE}/${URL}-${URL_MONTH}/"
+	else
+		echo "Error: Invalid URL"
+		echo "Try:   ${URL_DEFAULT}"
+		echo
+		exit 2
+	fi
+fi
+
+echo "URL: $URL"
+#HOST=$(echo $URL | cut -d/ -f3)
+#if ! ping -c1 -w1 $HOST &>/dev/null
+#then
+#	echo "  ERROR: Host $HOST is not accessible"
+#	echo
+#	exit 3
+#fi
+
+echo "Downloading security announcement IDs"
+SAURL=$(curl --silent $URL)
+if echo "$SAURL" | grep -i 'object not found\!' &>/dev/null
+then
+	echo "  ERROR: URL Not Found"
+	echo
+	exit
+fi
+if echo "$SAURL" | grep -i 'The sle-security-updates.*Archive by thread' &>/dev/null
+then
+	#SAIDS=$(echo "$SAURL" | grep '>SUSE-SU-' | awk '{print $2}' | sed -e 's/:$//g;s/\>/\|/g')
+	SAIDS=$(echo "$SAURL" | grep '>SUSE-SU-' | awk '{print $2}' | sed -e "s/>/\|/")
+else
+	if echo $URL | grep -v "/$" &>/dev/null; then
+		echo "  ERROR: Missing trailing slash (/) in URL"
+		echo "  Try:   ${URL}/"
+	else
+		echo "  ERROR: Invalid Security Announement Thread URL"
+		echo "$SAURL"
+	fi
+	echo
+	exit
+fi
+echo "Caching SCA Pattern File Paths"
+find $BASE &>/dev/null
+for i in $SAIDS
+do
+	echo $i
+	SAID=$(echo $i | cut -d\| -f2)
+	SAIDPG=$(echo $i | cut -d\| -f1 | cut -d\" -f2)
+	echo -n "Checking Patterns for $SAID ($SAIDPG): "
+	PATFOUND=$(find $BASE -type f | grep patterns | grep -v sca-patterns-base | sort | xargs grep $SAID | cut -d\: -f1 | awk -F\/ '{print $NF}' | sort | uniq)
+	if [[ -n "$PATFOUND" ]]
+	then
+		echo $PATFOUND
+	else
+		URL_CONTENT=$(curl --silent ${URL}/${SAIDPG})
+		if echo "$URL_CONTENT" | egrep -i 'SUSE Linux Enterprise Server.*-TERADATA' &>/dev/null
+		then
+			echo " ** Unsupported: Teradata Specific"
+		elif echo "$URL_CONTENT" | egrep -i 'suse linux enterprise desktop|suse linux enterprise server|suse core 9' &>/dev/null
+		then
+			echo " ** PENDING SLE **"
+			(( PENDING++ ))
+			sapat.py ${URL}/${SAIDPG}
+			RC=$?
+			if (( RC >= 255 )); then
+				(( FAILURES++ ))
+				mv ${SAIDPG} ${PAT_ERROR}
+			elif (( RC == 1 )); then
+				(( SKIPPED++ ))
+			elif (( RC > 1 )); then
+				(( UNKNOWN++ ))
+			else
+				(( SUCCESS++ ))
+			fi
+		elif echo "$URL_CONTENT" | egrep -i 'suse manager' &>/dev/null
+		then
+			echo " ** PENDING SUMA **"
+			(( PENDING++ ))
+			sapat-suma.py ${URL}/${SAIDPG}
+			RC=$?
+			if (( $? ))
+			then
+				(( FAILURES++ ))
+			else
+				(( SUCCESS++ ))
+			fi
+		elif echo "$URL_CONTENT" | egrep -i 'SUSE Linux Enterprise Real Time Extension' &>/dev/null
+		then
+			echo " ** PENDING SLE Real Time Kernel **"
+			(( PENDING++ ))
+			sapat.py ${URL}/${SAIDPG}
+			RC=$?
+			if (( RC >= 255 )); then
+				(( FAILURES++ ))
+			elif (( RC == 1 )); then
+				(( SKIPPED++ ))
+			elif (( RC > 1 )); then
+				(( UNKNOWN++ ))
+			else
+				(( SUCCESS++ ))
+			fi
+		elif echo "$URL_CONTENT" | egrep -i 'suse cloud' &>/dev/null
+		then
+			echo " ** Unsupported: SUSE Cloud"
+		elif echo "$URL_CONTENT" | egrep -i 'SUSE Studio' &>/dev/null
+		then
+			echo " ** Unsupported: SUSE Studio"
+		else
+			echo "Unsupported"
+		fi
+	fi
+done
+echo
+echo "Total Pending:  $PENDING"
+echo "Total Success:  $SUCCESS"
+echo "Total Failures: $FAILURES"
+echo "Total Skipped:  $SKIPPED"
+echo "Unknown Errors: $UNKNOWN"
+echo
