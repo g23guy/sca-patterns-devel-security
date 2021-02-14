@@ -1,11 +1,11 @@
 #!/bin/bash
-SVER="1.1.4"
+SVER="1.1.9_dev1"
 ##############################################################################
 # chksecurity - Security Advisory Announcement Checker
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Checks and creates SCA patterns for advisories
-# Modified:     2021 Feb 03
+# Modified:     2021 Feb 13
 #
 ##############################################################################
 #
@@ -33,19 +33,21 @@ echo "# Check Security Annoucements v$SVER"
 echo "##############################################################"
 # Usage: chksecurity [http://<url>|YYYY-MM|MM]
 #
-#URL_BASE="https://lists.opensuse.org/opensuse-security-announce"
 URL_BASE="https://lists.suse.com/pipermail/sle-security-updates"
 URL_MONTH=$(date +%B)
 URL_YEAR=$(date +%Y)
 URL="${1}"
 HOST=''
-BASE='/home/opt/gitwork'
+
+CURRENT_PATDIR="/home/opt/gitwork/"
 PATDIR_BASE='/home/opt/chksecurity'
-PATDIR="${PATDIR_BASE}/patterns"
+PAT_DIR="${PATDIR_BASE}/patterns"
 PAT_ERROR="${PATDIR_BASE}/errors"
 PAT_DUPS="${PATDIR_BASE}/duplicates"
+CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
 PENDING=0
 SUCCESS=0
+DUPLICATES=0
 FAILURES=0
 SKIPPED=0
 UNKNOWN=0
@@ -69,11 +71,11 @@ getMonthURL() {
 }
 
 URL_DEFAULT="${URL_BASE}/${URL_YEAR}-${URL_MONTH}/"
-for i in $PATDIR $PAT_ERROR $PAT_DUPS
+for i in $PAT_DIR $PAT_ERROR $PAT_DUPS
 do
 	[[ -d $i ]] || mkdir -p $i
 done
-cd $BASE
+cd $CURRENT_PATDIR
 
 # Determine Security announcement URL
 if [[ -z "$URL" ]]
@@ -140,31 +142,33 @@ else
 	exit
 fi
 echo "Caching SCA Pattern File Paths"
-find $BASE &>/dev/null
+find ${CURRENT_PATDIR} -type f | grep /patterns/ &> $CACHE_FILE
+TOTAL=$(echo "$SAIDS" | wc -l)
+CURRENT=0
 for i in $SAIDS
 do
-	echo $i
+#	echo $i
 	SAID=$(echo $i | cut -d\| -f2)
 	SAIDPG=$(echo $i | cut -d\| -f1 | cut -d\" -f2)
-	echo -n "Checking Patterns for $SAID ($SAIDPG): "
-	PATFOUND=$(find $BASE -type f | grep patterns | grep -v sca-patterns-base | sort | xargs grep $SAID | cut -d\: -f1 | awk -F\/ '{print $NF}' | sort | uniq)
+	(( CURRENT++ ))
+	echo -n "Checking Patterns for $SAID ($SAIDPG)[${CURRENT}/${TOTAL}]: "
+	SAID_SEARCH=$(tr ':' '_' <<< $SAID)
+	PATFOUND=$(grep $SAID_SEARCH $CACHE_FILE | awk -F\/ '{print $NF}' | sort | uniq)
 	if [[ -n "$PATFOUND" ]]
 	then
-		echo $PATFOUND
+		echo Duplicate
+		(( DUPLICATES++ ))
 	else
 		URL_CONTENT=$(curl --silent ${URL}/${SAIDPG})
-		if echo "$URL_CONTENT" | egrep -i 'SUSE Linux Enterprise Server.*-TERADATA' &>/dev/null
+		if echo "$URL_CONTENT" | egrep -i 'suse linux enterprise desktop|suse linux enterprise server|suse linux enterprise module for|suse core 9' &>/dev/null
 		then
-			echo " ** Unsupported: Teradata Specific"
-		elif echo "$URL_CONTENT" | egrep -i 'suse linux enterprise desktop|suse linux enterprise server|suse core 9' &>/dev/null
-		then
-			echo " ** PENDING SLE **"
+			echo "Processing SLE"
 			(( PENDING++ ))
-			sapat.py ${URL}/${SAIDPG}
+			sapat.py -q ${URL}/${SAIDPG}
 			RC=$?
 			if (( RC >= 255 )); then
 				(( FAILURES++ ))
-				mv ${SAIDPG} ${PAT_ERROR}
+				mv ${CURRENT_PATDIR}/${SAIDPG} ${PAT_ERROR}
 			elif (( RC == 1 )); then
 				(( SKIPPED++ ))
 			elif (( RC > 1 )); then
@@ -174,9 +178,9 @@ do
 			fi
 		elif echo "$URL_CONTENT" | egrep -i 'suse manager' &>/dev/null
 		then
-			echo " ** PENDING SUMA **"
+			echo "Processing SUMA+"
 			(( PENDING++ ))
-			sapat-suma.py ${URL}/${SAIDPG}
+			sapat-suma.py -q ${URL}/${SAIDPG}
 			RC=$?
 			if (( $? ))
 			then
@@ -186,9 +190,9 @@ do
 			fi
 		elif echo "$URL_CONTENT" | egrep -i 'SUSE Linux Enterprise Real Time Extension' &>/dev/null
 		then
-			echo " ** PENDING SLE Real Time Kernel **"
+			echo "Processing SLE Real Time Kernel"
 			(( PENDING++ ))
-			sapat.py ${URL}/${SAIDPG}
+			sapat.py -q ${URL}/${SAIDPG}
 			RC=$?
 			if (( RC >= 255 )); then
 				(( FAILURES++ ))
@@ -199,21 +203,26 @@ do
 			else
 				(( SUCCESS++ ))
 			fi
-		elif echo "$URL_CONTENT" | egrep -i 'suse cloud' &>/dev/null
+		elif echo "$URL_CONTENT" | egrep -i 'suse cloud|suse openstack cloud' &>/dev/null
 		then
-			echo " ** Unsupported: SUSE Cloud"
+			echo "Unsupported: SUSE Cloud"
 		elif echo "$URL_CONTENT" | egrep -i 'SUSE Studio' &>/dev/null
 		then
-			echo " ** Unsupported: SUSE Studio"
+			echo "Unsupported: SUSE Studio"
+		elif echo "$URL_CONTENT" | egrep -i 'SUSE Linux Enterprise Server.*-TERADATA' &>/dev/null
+		then
+			echo "Unsupported: Teradata Specific"
 		else
 			echo "Unsupported"
 		fi
 	fi
 done
 echo
-echo "Total Pending:  $PENDING"
-echo "Total Success:  $SUCCESS"
-echo "Total Failures: $FAILURES"
-echo "Total Skipped:  $SKIPPED"
-echo "Unknown Errors: $UNKNOWN"
+echo "Total Processed:  $PENDING"
+echo "Total Success:    $SUCCESS"
+echo "Total Duplicates: $DUPLICATES"
+echo "Total Failures:   $FAILURES"
+echo "Total Skipped:    $SKIPPED"
+echo "Unknown Errors:   $UNKNOWN"
+rm -f $CACHE_FILE
 echo

@@ -1,19 +1,51 @@
 #!/usr/bin/python
+SVER = '1.0.9_dev1'
+##############################################################################
+# sapat-suma.py - Security Advisory Announcement Pattern Generator for SUMA
+# Copyright (C) 2021 SUSE LLC
+#
+# Description:  Creates a python security advisory pattern from HTML SUMA pages
+# Modified:     2021 Feb 13
+#
+##############################################################################
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; version 2 of the License.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+#  Authors/Contributors:
+#     Jason Record <jason.record@suse.com>
+#
+##############################################################################
 
 import sys
+import getopt
 import os
 import re
 import datetime
 import urllib
 
-SVER = '1.0.7'
-AUTHOR = 'Jason Record (jason.record@suse.com)'
+AUTHOR = 'Jason Record <jason.record@suse.com>'
 MD = {
 	'url': '',
 	'file': '',
 	'name': '',
 	'severity': '',
 	'tag': '',
+}
+CNT = {
+	'errors': 0,
+	'skipped': 0,
+	'success': 0,
+	'patterns': 0
 }
 
 PATDIR = "/home/opt/chksecurity/patterns/"
@@ -25,6 +57,9 @@ LTSS = 'False'
 FAILURE = False
 DISTROS = {}
 DISPLAY = "{0:15} = {1}"
+VERBOSE = True
+QUIET = False
+RCODE = 0
 
 def title():
 	print "\n##################################################"
@@ -37,7 +72,8 @@ def createPattern(VERSION):
 	PATTERN_ID = str(MD['name']).lower() + "_" + str(MD['tag']) + "_suma-" + str(VERSION) + ".py"
 	PATTERN_ID = PATTERN_ID.replace(':', '_')
 #	print "Creating pattern with " + str(len(PACKAGES)) + " packages: " + PATTERN_ID
-	print DISPLAY.format('Pattern', str(PATTERN_ID) + " (" +  str(len(PACKAGES)) + " packages)")
+	if( VERBOSE ):
+		print DISPLAY.format('Pattern', str(PATTERN_ID) + " (" +  str(len(PACKAGES)) + " packages)")
 
 	TODAY = datetime.date.today()
 	# Build pattern file content
@@ -103,7 +139,7 @@ def createPattern(VERSION):
 
 	# Write the content to disk
 	try:
-                PATFILE = PATDIR + PATTERN_ID
+		PATFILE = PATDIR + PATTERN_ID
 		FILE_OPEN = open(PATFILE, "w")
 		FILE_OPEN.write(CONTENT)
 		FILE_OPEN.close()
@@ -115,40 +151,37 @@ def createPattern(VERSION):
 def getSecurityAnnouncement(FILE):
 #	print "  >getSecurityAnnouncement(" + str(FILE) + ")"
 	global MD
-	if( len(sys.argv) > 1 ):
-		MD['url'] = sys.argv[1]
-		MD['file'] = MD['url'].split("/")[-1]
-		FILE_OPEN = MD['file']
-		MD['url'] = MD['url'].replace("//" + FILE_OPEN, "/" + FILE_OPEN)
+	MD['file'] = MD['url'].split("/")[-1]
+	FILE_OPEN = MD['file']
+	MD['url'] = MD['url'].replace("//" + FILE_OPEN, "/" + FILE_OPEN)
+	if( VERBOSE ):
 		print DISPLAY.format('Downloading URL', str(MD['url']))
-		try:
-			urllib.urlretrieve(MD['url'], FILE_OPEN)
-		except Exception, error:
-			print " ERROR: Cannot download " + str(MD['url']) + ": " + str(error)
-			sys.exit()
-
-		print DISPLAY.format('Loading File', str(FILE_OPEN))
-		try:
-			FILE_OPENED = open(FILE_OPEN)
-		except Exception, error:
-			print " ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error)
-			sys.exit()
-
-		I = 0
-		INVALID = re.compile(r'>Object not found!<', re.IGNORECASE)
-		for LINE in FILE_OPENED:
-			LINE = LINE.strip("\n")
-			if INVALID.search(LINE):
-				FILE = {}
-				print " ERROR: Invalid Security Announcement File: " + str(MD['file'])
-				FILE_OPENED.close()
-				sys.exit()
-			FILE[I] = LINE
-			I += 1
-		FILE_OPENED.close()
-	else:
-		print " ERROR: Missing Security Announcement HTML file to process.\n"
+	try:
+		urllib.urlretrieve(MD['url'], FILE_OPEN)
+	except Exception, error:
+		print " ERROR: Cannot download " + str(MD['url']) + ": " + str(error)
 		sys.exit()
+
+	if( VERBOSE ):
+		print DISPLAY.format('Loading File', str(FILE_OPEN))
+	try:
+		FILE_OPENED = open(FILE_OPEN)
+	except Exception, error:
+		print " ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error)
+		sys.exit()
+
+	I = 0
+	INVALID = re.compile(r'>Object not found!<', re.IGNORECASE)
+	for LINE in FILE_OPENED:
+		LINE = LINE.strip("\n")
+		if INVALID.search(LINE):
+			FILE = {}
+			print " ERROR: Invalid Security Announcement File: " + str(MD['file'])
+			FILE_OPENED.close()
+			sys.exit()
+		FILE[I] = LINE
+		I += 1
+	FILE_OPENED.close()
 #	print "  <getSecurityAnnouncement"
 
 def getMetaData(MD):
@@ -164,9 +197,10 @@ def getMetaData(MD):
 			MD['tag'] = TEXT.split()[-1]
 		elif TEXT.startswith("Rating:"):
 			MD['severity'] = TEXT.split()[-1].title()
-	print DISPLAY.format('Name', str(MD['name']))
-	print DISPLAY.format('Tag', str(MD['tag']))
-	print DISPLAY.format('Severity', str(MD['severity']))
+	if( VERBOSE ):
+		print DISPLAY.format('Name', str(MD['name']))
+		print DISPLAY.format('Tag', str(MD['tag']))
+		print DISPLAY.format('Severity', str(MD['severity']))
 #	print "  <getMetaData"
 
 def getAffectedProducts(APLIST):
@@ -192,7 +226,8 @@ def getAffectedProducts(APLIST):
 						I += 1
 		elif AffectedProductList.search(FILE[LINE]):
 			STATE = True
-	print DISPLAY.format('Products', str(len(APLIST)))
+	if( VERBOSE ):
+		print DISPLAY.format('Products', str(len(APLIST)))
 #	print "  <getAffectedProducts: APLIST=" + str(APLIST)
 
 def getVersion(PRODUCT):
@@ -272,15 +307,61 @@ def cleanUp():
 	except Exception, error:
 		print " ERROR: Cannot delete " + str(MD['file']) + ": " + str(error)
 
+def showSummary():
+	global CNT
+	print(" Patterns: " + str(CNT['patterns']) + ", Success: " + str(CNT['success']) + ", Skipped: " + str(CNT['skipped']) + ", Errors: " + str(CNT['errors']))
+
 ###########################################################################
 # MAIN
 ###########################################################################
-title()
+if( len(sys.argv[1:]) > 0 ):
+	try:
+		options, remainder = getopt.getopt(sys.argv[1:], "hqs", ["help", "quiet", "summary"])
+#		print(options)
+#		print(remainder)
+	except getopt.GetoptError as err:
+		# print help information and exit:
+		title()
+		usage()
+		print("ERROR: " + str(err)) # will print something like "option -b not recognized"
+		print
+		sys.exit(2)
+else:
+	title()
+	usage()
+	print("ERROR: Missing Advisory URL")
+	sys.exit(1)
+
+for opt, arg in options:
+#	print(opt)
+#	print(arg)
+	if opt in ("-h", "--help"):
+		title()
+		usage()
+		sys.exit(0)
+	elif opt in ("-q", "--quiet"):
+		QUIET = True
+		VERBOSE = False
+	elif opt in ("-s", "--summary"):
+		QUIET = False
+		VERBOSE = False
+
+if( remainder ):
+	MD['url'] = remainder[0]
+else:
+	title()
+	usage()
+	print("ERROR: Missing Advisory URL")
+	sys.exit(1)
+
+if VERBOSE:
+    title()
 getSecurityAnnouncement(FILE)
 getMetaData(MD)
 getAffectedProducts(APLIST)
 PACKAGE_ERRORS = 0
 for I in APLIST:
+	CNT['patterns'] += 1
 #	print "\n  * Start main loop: " + str(APLIST[I])
 	if "suse manager" in APLIST[I].lower():
 		if APLIST[I].endswith("LTSS"):
@@ -296,11 +377,16 @@ for I in APLIST:
 		createPattern(getVersion(APLIST[I]))
 cleanUp()
 if( FAILURE ):
-	print DISPLAY.format('Status', '** FAILURE **')
+	CNT['errors'] += 1
+	if( VERBOSE ):
+		print DISPLAY.format('Status', '** FAILURE **')
 	RCODE = 1
 else:
-	print DISPLAY.format('Status', 'Success')
-	RCODE = 0
-print
+	CNT['success'] += 1
+	if( VERBOSE ):
+		print DISPLAY.format('Status', 'Success')
+if( not VERBOSE ):
+	if( not QUIET ):
+		showSummary()
 sys.exit(RCODE)
 
