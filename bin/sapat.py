@@ -1,11 +1,11 @@
 #!/usr/bin/python
-SVER = '1.5.9_dev1'
+SVER = '1.5.9_dev5'
 ##############################################################################
 # sapat.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2021 Feb 13
+# Modified:     2021 Feb 15
 #
 ##############################################################################
 #
@@ -178,7 +178,8 @@ def getSecurityAnnouncement(FILE):
 	try:
 		urllib.urlretrieve(MD['url'], FILE_OPEN)
 	except Exception, error:
-		print " ERROR: Cannot download " + str(MD['url']) + ": " + str(error)
+		if( VERBOSE ):
+			print " ERROR: Cannot download " + str(MD['url']) + ": " + str(error)
 		sys.exit()
 
 	if( VERBOSE ):
@@ -451,18 +452,20 @@ for D in DISTROS.keys():
 		CNT['errors'] += 1
 		FAILURE = True
 		ERR_PKG_VERSION = True
-		print " ERROR: Detected " + str(PACKAGE_ERRORS) + " package version errors for SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
+		if( VERBOSE ):
+			print " ERROR: Detected " + str(PACKAGE_ERRORS) + " package version errors for SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
 	if( len(PACKAGES) == 0 ):
 		FAILURE = True
 		CNT['errors'] += 1
 		ERR_PKG_EMPTY = True
-		print " ERROR: Empty package list SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
+		if( VERBOSE ):
+			print " ERROR: Empty package list SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
 	createPattern(D)
 cleanUp()
 if( FAILURE ):
 	if( VERBOSE ):
 		print DISPLAY.format('Status', '** FAILURE **')
-		RCODE = 255
+	RCODE = 255
 elif( len(DISTROS) < 1 ):
 	CNT['skipped'] += 1
 	if( VERBOSE ):

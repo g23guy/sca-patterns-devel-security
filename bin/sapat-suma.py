@@ -121,6 +121,8 @@ def createPattern(VERSION):
 	CONTENT += "SUMA = suma.getSumaInfo()\n\n"
 	if( len(PACKAGES) == 0 ):
 		CONTENT += "ERROR_FixEmptyPackageList\n"
+# Force error for now
+	CONTENT += "ERROR_AbortSUMAPatterns\n"
 	CONTENT += "if ( SUMA['Installed'] ):\n"
 	CONTENT += "\tif ( SUMA['Version'] == '" + str(VERSION) + "' ):\n"
 	CONTENT += "\t\tPACKAGES = {\n"
