@@ -1,11 +1,11 @@
 #!/bin/bash
-SVER="1.1.9_dev6"
+SVER="1.1.9_dev8"
 ##############################################################################
 # chksecurity - Security Advisory Announcement Checker
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Checks and creates SCA patterns for advisories
-# Modified:     2021 Feb 15
+# Modified:     2021 Feb 19
 #
 ##############################################################################
 #
@@ -169,22 +169,22 @@ do
 			RC=$?
 			if (( $? ))
 			then
-				echo "FAILED"
+				echo "** FAILED **"
 				(( FAILURES++ ))
 			else
-				echo "FAILED"
+				echo "** FAILED **"
 				(( FAILURES++ ))
 #				echo "Done"
 #				(( SUCCESS++ ))
 			fi
-		elif egrep -i 'suse linux enterprise desktop|suse linux enterprise server|suse linux enterprise module for basesystem|suse core 9' <<< ${AFFECTED_PRODUCTS} &>/dev/null
+		elif egrep -i 'suse linux enterprise desktop|suse linux enterprise server|suse linux enterprise module for basesystem' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
 			echo -n "SLE "
 			(( PENDING++ ))
 			sapat.py -q ${URL}/${SAIDPG}
 			RC=$?
 			if (( RC >= 255 )); then
-				echo "FAILED"
+				echo "** FAILED **"
 				(( FAILURES++ ))
 			elif (( RC == 1 )); then
 				echo "Skipped"
@@ -203,7 +203,7 @@ do
 			sapat.py -q ${URL}/${SAIDPG}
 			RC=$?
 			if (( RC >= 255 )); then
-				echo "FAILED"
+				echo "** FAILED **"
 				(( FAILURES++ ))
 			elif (( RC == 1 )); then
 				echo "Skipped"
@@ -215,6 +215,9 @@ do
 				echo "Done"
 				(( SUCCESS++ ))
 			fi
+		elif egrep -i 'SUSE Linux Enterprise Installer' <<< ${AFFECTED_PRODUCTS} &>/dev/null
+		then
+			echo "Unsupported: Installer"
 		elif egrep -i 'SUSE Linux Enterprise High Availability' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
 			echo "Unsupported: HAE"

@@ -1,4 +1,4 @@
-# spec file for package sca-patterns-security
+# spec file for package sca-patterns-autogen
 #
 # Copyright (c) 2021 SUSE LINUX GmbH, Nuernberg, Germany.
 #
@@ -11,18 +11,18 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-Name:         sca-patterns-security
-Version:      1.0.0
+Name:         sca-patterns-autogen
+Version:      1.0.1
 Release:      0
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only
-URL:          https://github.com/g23guy/sca-patterns-security
+URL:          https://github.com/g23guy/sca-patterns-autogen
 Group:        System/Monitoring
 Source:       %{name}-%{version}.tar.gz
 BuildArch:    noarch
 
 %description
-Tools to generate patterns from the Security Update Advisories for SUSE Enterprise Server mailing list
+Tools to generate patterns for the SCA Tool
 
 %prep
 %setup -q
