@@ -1,12 +1,12 @@
 #!/usr/bin/python
-SVER = '0.2.0'
+SVER = '0.2.1'
 ##############################################################################
 # pkgver - Package Version Pattern Template
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Creates a pattern template for TIDs where a specific package
 #               and version contain a break and a fix.
-# Modified:     2021 Feb 17
+# Modified:     2021 Mar 01
 #
 ##############################################################################
 #
@@ -106,6 +106,8 @@ def patternHeader(OPT):
 	CONTENT += "# along with this program; if not, see <http://www.gnu.org/licenses/>.\n#\n"
 	CONTENT += "#  Authors/Contributors:\n#   " + AUTHOR + "\n#\n"
 	CONTENT += "##############################################################################\n\n"
+	if( MD['confirmed'] ):
+		CONTENT += "import re\n"
 	CONTENT += "import os\n"
 	CONTENT += "import Core\n"
 	CONTENT += "import SUSE\n\n"
@@ -133,9 +135,10 @@ def patternConfirmed():
 	CONTENT += "\tfileOpen = \"filename.txt\"\n"
 	CONTENT += "\tsection = \"CommandToIdentifyFileSection\"\n"
 	CONTENT += "\tcontent = {}\n"
+	CONTENT += "\tCONFIRMED = re.compile(\"\", re.IGNORECASE)\n"
 	CONTENT += "\tif Core.getSection(fileOpen, section, content):\n"
 	CONTENT += "\t\tfor line in content:\n"
-	CONTENT += "\t\t\tif \"something\" in content[line]:\n"
+	CONTENT += "\t\t\tif CONFIRMED.search(content[line]):\n"
 	CONTENT += "\t\t\t\treturn True\n"
 	CONTENT += "\treturn False\n\n"
 
