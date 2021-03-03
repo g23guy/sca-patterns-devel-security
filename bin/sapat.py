@@ -1,11 +1,11 @@
 #!/usr/bin/python
-SVER = '1.5.9_dev5'
+SVER = '1.6.1'
 ##############################################################################
 # sapat.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2021 Feb 15
+# Modified:     2021 Mar 03
 #
 ##############################################################################
 #
@@ -58,7 +58,7 @@ APLIST = []
 FAILURE = False
 ERR_PKG_VERSION = False
 ERR_PKG_EMPTY = False
-DISTROS = {}
+DISTRO = ''
 DISPLAY = "{0:15} = {1}"
 VERBOSE = True
 RCODE = 0
@@ -68,9 +68,10 @@ def title():
 	print "# Security Announcement Parser, v" + str(SVER)
 	print "##################################################"
 
-def createPattern(DISTRO_CODE):
+def createPattern():
 	global PACKAGES
-	(DIST, PATCH, LTSS_STR) = DISTRO_CODE.split('.')
+	global DISTRO
+	(DIST, PATCH, LTSS_STR) = DISTRO.split('.')
 	if( len(LTSS_STR) > 0 ):
 		ADD_LTSS_STR="." + LTSS_STR
 	else:
@@ -158,14 +159,19 @@ def createPattern(DISTRO_CODE):
 
 
 	# Write the content to disk
-	try:
-		PATFILE = PATDIR + PATTERN_ID
-		FILE_OPEN = open(PATFILE, "w")
-		FILE_OPEN.write(CONTENT)
-		FILE_OPEN.close()
-		os.chmod(PATFILE, 0755)
-	except Exception, error:
-		print " ERROR: Cannot create " + str(PATFILE) + ": " + str(error)
+	PATFILE = PATDIR + PATTERN_ID
+	if( os.path.exists(PATFILE) ):
+		print " ERROR: Pattern collision, duplicate " + PATFILE
+		cleanUp()
+		sys.exit(4)
+	else:
+		try:
+			FILE_OPEN = open(PATFILE, "w")
+			FILE_OPEN.write(CONTENT)
+			FILE_OPEN.close()
+			os.chmod(PATFILE, 0755)
+		except Exception, error:
+			print " ERROR: Cannot create " + str(PATFILE) + ": " + str(error)
 
 def getSecurityAnnouncement(FILE):
 	global MD
@@ -188,6 +194,7 @@ def getSecurityAnnouncement(FILE):
 		FILE_OPENED = open(FILE_OPEN)
 	except Exception, error:
 		print " ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error)
+		cleanUp()
 		sys.exit()
 
 	I = 0
@@ -198,6 +205,7 @@ def getSecurityAnnouncement(FILE):
 			FILE = {}
 			print " ERROR: Invalid Security Announcement File: " + str(MD['file'])
 			FILE_OPENED.close()
+			cleanUp()
 			sys.exit()
 		FILE[I] = LINE
 		I += 1
@@ -238,7 +246,7 @@ def getMetaData(MD):
 def getAffectedProducts(APLIST):
 #	print "  >getAffectedProducts"
 	AffectedProductList = re.compile("^Affected Products:", re.IGNORECASE)
-	GetDistro = re.compile("SUSE Linux Enterprise Server [0-9]|SUSE Linux Enterprise Desktop [0-9]|SUSE Linux Enterprise Module for", re.IGNORECASE)
+	GetDistro = re.compile("SUSE Linux Enterprise Server [0-9]|SUSE Linux Enterprise Desktop [0-9]|SUSE Linux Enterprise Module for Basesystem", re.IGNORECASE)
 	STATE = False
 	for LINE in FILE:
 		if( STATE ):
@@ -273,66 +281,49 @@ def getAffectedProducts(APLIST):
 #	print "  <getAffectedProducts: APLIST=" + str(APLIST)
 #	sys.exit(3)
 
-def getDistributions():
-#	print "  >getDistributions"
-	global DISTROS
-	for AP in APLIST:
-#		print "Checking", AP
-		if "-SP" in AP:
-			AP = AP.replace("-SP", " SP")
-		if "-LTSS" in AP:
-			AP = AP.replace("-LTSS", " LTSS")
-#		print " Fixed", AP
-		THIS_DISTRO = ''
-		OSDISTRO = -1
-		SP = 0
-		LTSS_STR = ''
-		DISTRO_TMP = AP.split()
-#		print 'DISTRO_TMP', DISTRO_TMP
-		if AP.lower().endswith(" ltss"):
-			LTSS_STR = "ltss"
-		for TEXT in DISTRO_TMP:
-#			print " TEXT = " + str(TEXT) + "; OSDISTRO = " + str(OSDISTRO)
-			if( OSDISTRO >= 0 ):
-				if "SP" in TEXT:
-					SP = TEXT.replace('SP', '')
-					break
-			elif TEXT.endswith("-EXTRA"):
-				THIS_DISTRO="Exclude"
-			elif TEXT.isdigit():
-				OSDISTRO = int(TEXT)
-		if( THIS_DISTRO != "Exclude" ):
-			THIS_DISTRO = str(OSDISTRO) + "." + str(SP) + "." + str(LTSS_STR)
-		if THIS_DISTRO in DISTROS:
-			True
-		else:
-			DISTROS[THIS_DISTRO] = True
-#		print " THIS_DISTRO: " + str(THIS_DISTRO)
+def getDistribution(AP):
+#	print "  >getDistribution"
+	global DISTRO
+	if "-SP" in AP:
+		AP = AP.replace("-SP", " SP")
+	if "-LTSS" in AP:
+		AP = AP.replace("-LTSS", " LTSS")
+#	print " Fixed", AP
+	THIS_DISTRO = ''
+	OSDISTRO = -1
+	SP = 0
+	LTSS_STR = ''
+	DISTRO_TMP = AP.split()
+#	print 'DISTRO_TMP', DISTRO_TMP
+	if AP.lower().endswith(" ltss"):
+		LTSS_STR = "ltss"
+	for TEXT in DISTRO_TMP:
+#		print " TEXT = " + str(TEXT) + "; OSDISTRO = " + str(OSDISTRO)
+		if( OSDISTRO >= 0 ):
+			if "SP" in TEXT:
+				SP = TEXT.replace('SP', '')
+				break
+		elif TEXT.endswith("-EXTRA"):
+			THIS_DISTRO="Exclude"
+		elif TEXT.isdigit():
+			OSDISTRO = int(TEXT)
+	if( THIS_DISTRO != "Exclude" ):
+		DISTRO = str(OSDISTRO) + "." + str(SP) + "." + str(LTSS_STR)
 	if( VERBOSE ):
-		print DISPLAY.format('Distributions', str(len(DISTROS)))
-#	print "  <getDistributions: DISTROS=" + str(DISTROS)
+		print DISPLAY.format('Distribution', AP)
+#	print "  <getDistribution: DISTRO=" + str(DISTRO)
 	
-def getPackages(DISTRO_CODE):
+def getPackages(AFFECTED_DISTRO):
 #	print "\n======================================="
-#	print "  >getPackages(" + str(DISTRO_CODE) + ")"
+#	print "  >getPackages(" + str(AFFECTED_DISTRO) + ")"
 	global PACKAGES
 	global PACKAGE_ERRORS
 	IN_PACKAGE_LIST = False
 	PROD_LIST = False
-	(VER_MAJOR, VER_MINOR, LTSS_STR) = DISTRO_CODE.split('.')
-	SEARCH_STRING = ''
-	if( int(VER_MINOR) > 0 ):
-		if "ltss" in LTSS_STR:
-			SEARCH_STRING = "^-\s+SUSE Linux Enterprise.*" + str(VER_MAJOR) + ".*SP" + str(VER_MINOR) + ".*LTSS"
-		else:
-			SEARCH_STRING = "^-\s+SUSE Linux Enterprise.*" + str(VER_MAJOR) + ".*SP" + str(VER_MINOR)
-	else:
-		if "ltss" in LTSS_STR:
-			SEARCH_STRING = "^-\s+SUSE Linux Enterprise.*" + str(VER_MAJOR) + ".*LTSS"
-		else:
-			SEARCH_STRING = "^-\s+SUSE Linux Enterprise.*" + str(VER_MAJOR)
-#	print "SEARCH STRING = '" + str(SEARCH_STRING) + "'\n"
-	PL = re.compile(SEARCH_STRING, re.IGNORECASE)
+	getDistribution(AFFECTED_DISTRO)
+
+	(VER_MAJOR, VER_MINOR, LTSS_STR) = DISTRO.split('.')
+	PL = re.compile(AFFECTED_DISTRO, re.IGNORECASE)
 	for LINE in FILE:
 		TEXT = FILE[LINE].strip().replace('<br>', '')
 #		if "SUSE Linux Enterprise" in TEXT:
@@ -441,13 +432,11 @@ if VERBOSE:
 getSecurityAnnouncement(FILE)
 getMetaData(MD)
 getAffectedProducts(APLIST)
-getDistributions()
-for D in DISTROS.keys():
+for AP in APLIST:
 	CNT['patterns'] += 1
 	PACKAGES = {}
 	PACKAGE_ERRORS = 0
-	(VER_MAJOR, VER_MINOR, LTSS_STR) = D.split('.')
-	getPackages(D)
+	getPackages(AP)
 	if( PACKAGE_ERRORS > 0 ):
 		CNT['errors'] += 1
 		FAILURE = True
@@ -460,13 +449,13 @@ for D in DISTROS.keys():
 		ERR_PKG_EMPTY = True
 		if( VERBOSE ):
 			print " ERROR: Empty package list SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
-	createPattern(D)
+	createPattern()
 cleanUp()
 if( FAILURE ):
 	if( VERBOSE ):
 		print DISPLAY.format('Status', '** FAILURE **')
 	RCODE = 255
-elif( len(DISTROS) < 1 ):
+elif( len(DISTRO) < 1 ):
 	CNT['skipped'] += 1
 	if( VERBOSE ):
 		print DISPLAY.format('Status', '** SKIPPED **')
