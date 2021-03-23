@@ -1,12 +1,12 @@
 #!/usr/bin/python
-SVER = '0.2.1'
+SVER = '0.2.2'
 ##############################################################################
 # pkgver - Package Version Pattern Template
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Creates a pattern template for TIDs where a specific package
 #               and version contain a break and a fix.
-# Modified:     2021 Mar 01
+# Modified:     2021 Mar 23
 #
 ##############################################################################
 #
@@ -64,7 +64,7 @@ def title():
 
 def createMetadata(IDENTITY_CODE):
 	global MD
-#	print(IDENTITY_CODE)
+	print(IDENTITY_CODE)
 	(MD['class'], MD['category'], MD['component'], MD['tid'], MD['bug'], MD['name'], MD['rpm'], MD['rpmvfixed'], MD['rpmvbroke'], MD['confirmed'] ) = IDENTITY_CODE.split(',')
 	MD['tidurl'] = "https://www.suse.com/support/kb/doc/?id=" + str(MD['tid'])
 	if( int(MD['bug']) > 0 ):
@@ -305,6 +305,16 @@ else:
 
 if VERBOSE:
     title()
+OPTIONS_LIST = OPTIONS.split(',')
+if( len(OPTIONS_LIST) < 10 ):
+	print "\nERROR: Invalid option list - missing value(s)\n"
+	usage()
+	sys.exit(1)
+if( len(OPTIONS_LIST) > 10 ):
+	print "\nERROR: Invalid option list - too many value(s)\n"
+	usage()
+	sys.exit(1)
+
 createMetadata(OPTIONS)
 
 if( VERBOSE ):
