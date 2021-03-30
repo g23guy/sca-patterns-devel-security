@@ -1,12 +1,12 @@
-#!/usr/bin/python
-SVER = '0.2.2'
+#!/usr/bin/python3
+SVER = '0.3.7'
 ##############################################################################
 # pkgver - Package Version Pattern Template
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Creates a pattern template for TIDs where a specific package
 #               and version contain a break and a fix.
-# Modified:     2021 Mar 23
+# Modified:     2021 Mar 29
 #
 ##############################################################################
 #
@@ -29,15 +29,19 @@ SVER = '0.2.2'
 
 import sys
 import os
+import stat
 import re
 import getopt
 import datetime
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 AUTHOR = 'Jason Record <jason.record@suse.com>'
 MD = {
 	'class': '',
 	'category': '',
 	'component': '',
+	'title': '',
 	'tid': '',
 	'tidurl': '',
 	'bug': '',
@@ -56,15 +60,16 @@ CONTENT = ''
 DISPLAY = "{0:15} = {1}"
 VERBOSE = True
 RCODE = 0
+OPTIONS_REQ = 10
 
 def title():
-	print "\n##################################################"
-	print "# Package Version Pattern Template, v" + str(SVER)
-	print "##################################################"
+	print("\n##################################################")
+	print("# Package Version Pattern Template, v" + str(SVER))
+	print("##################################################")
 
 def createMetadata(IDENTITY_CODE):
 	global MD
-	print(IDENTITY_CODE)
+#	print(IDENTITY_CODE)
 	(MD['class'], MD['category'], MD['component'], MD['tid'], MD['bug'], MD['name'], MD['rpm'], MD['rpmvfixed'], MD['rpmvbroke'], MD['confirmed'] ) = IDENTITY_CODE.split(',')
 	MD['tidurl'] = "https://www.suse.com/support/kb/doc/?id=" + str(MD['tid'])
 	if( int(MD['bug']) > 0 ):
@@ -87,8 +92,8 @@ def patternHeader(OPT):
 	TODAY = datetime.date.today()
 	# Build pattern file content
 	CONTENT = "#!/usr/bin/python\n#\n"
-	CONTENT += "# Title:       TID" + MD['tid'] + ", " + MD['name'] + "\n"
-	CONTENT += "# Description: Pattern for TID" + MD['tid'] + "\n"
+	CONTENT += "# Title:       Pattern for TID" + MD['tid'] + "\n"
+	CONTENT += "# Description: " + MD['title'] + "\n"
 	CONTENT += "# Source:      Package Version Pattern Template v" + str(SVER) + "\n"
 	CONTENT += "# Options:     " + str(OPT) + "\n"
 	CONTENT += "# Modified:    " + str(TODAY.strftime("%Y %b %d")) + "\n"
@@ -126,7 +131,7 @@ def patternConfirmed():
 	global CONTENT
 
 	if( VERBOSE ):
-		print DISPLAY.format('Confirmation', "True")
+		print(DISPLAY.format('Confirmation', "True"))
 
 	CONTENT += "##############################################################################\n"
 	CONTENT += "# Local Function Definitions\n"
@@ -134,11 +139,11 @@ def patternConfirmed():
 	CONTENT += "def conditionConfirmed():\n"
 	CONTENT += "\tfileOpen = \"filename.txt\"\n"
 	CONTENT += "\tsection = \"CommandToIdentifyFileSection\"\n"
-	CONTENT += "\tcontent = {}\n"
+	CONTENT += "\tcontent = []\n"
 	CONTENT += "\tCONFIRMED = re.compile(\"\", re.IGNORECASE)\n"
-	CONTENT += "\tif Core.getSection(fileOpen, section, content):\n"
+	CONTENT += "\tif Core.getExactSection(fileOpen, section, content):\n"
 	CONTENT += "\t\tfor line in content:\n"
-	CONTENT += "\t\t\tif CONFIRMED.search(content[line]):\n"
+	CONTENT += "\t\t\tif CONFIRMED.search(line):\n"
 	CONTENT += "\t\t\t\treturn True\n"
 	CONTENT += "\treturn False\n\n"
 
@@ -151,7 +156,7 @@ def patternConfirmed():
 
 	if( str(MD['rpmvbroke']) == "0" ):
 		if( VERBOSE ):
-			print DISPLAY.format('RPM Depth', "Fixed Only")
+			print(DISPLAY.format('RPM Depth', "Fixed Only"))
 		CONTENT += "if( SUSE.packageInstalled(RPM_NAME) ):\n"
 		CONTENT += "\tINSTALLED_VERSION = SUSE.compareRPM(RPM_NAME, RPM_VERSION_FIXED)\n"
 		CONTENT += "\tif( INSTALLED_VERSION >= 0 ):\n"
@@ -165,7 +170,7 @@ def patternConfirmed():
 		CONTENT += "\tCore.updateStatus(Core.ERROR, \"ERROR: \" + RPM_NAME + \" not installed\")\n\n"
 	else:
 		if( VERBOSE ):
-			print DISPLAY.format('RPM Depth', "Broken and Fixed")
+			print(DISPLAY.format('RPM Depth', "Broken and Fixed"))
 		CONTENT += "RPM_VERSION_BROKE = '" + MD['rpmvbroke'] + "'\n"
 		CONTENT += "if( SUSE.packageInstalled(RPM_NAME) ):\n"
 		CONTENT += "\tINSTALLED_VERSION = SUSE.compareRPM(RPM_NAME, RPM_VERSION_FIXED)\n"
@@ -190,7 +195,7 @@ def patternBasic():
 	global CONTENT
 
 	if( VERBOSE ):
-		print DISPLAY.format('Confirmation', "False")
+		print(DISPLAY.format('Confirmation', "False"))
 
 	CONTENT += "##############################################################################\n"
 	CONTENT += "# Main Program Execution\n"
@@ -200,7 +205,7 @@ def patternBasic():
 	CONTENT += "RPM_VERSION_FIXED = '" + MD['rpmvfixed'] + "'\n"
 	if( str(MD['rpmvbroke']) == "0" ):
 		if( VERBOSE ):
-			print DISPLAY.format('RPM Depth', "Fixed Only")
+			print(DISPLAY.format('RPM Depth', "Fixed Only"))
 		CONTENT += "if( SUSE.packageInstalled(RPM_NAME) ):\n"
 		CONTENT += "\tINSTALLED_VERSION = SUSE.compareRPM(RPM_NAME, RPM_VERSION_FIXED)\n"
 		CONTENT += "\tif( INSTALLED_VERSION >= 0 ):\n"
@@ -211,7 +216,7 @@ def patternBasic():
 		CONTENT += "\tCore.updateStatus(Core.ERROR, \"ERROR: \" + RPM_NAME + \" not installed\")\n\n"
 	else:
 		if( VERBOSE ):
-			print DISPLAY.format('RPM Depth', "Broken and Fixed")
+			print(DISPLAY.format('RPM Depth', "Broken and Fixed"))
 		CONTENT += "RPM_VERSION_BROKE = '" + MD['rpmvbroke'] + "'\n"
 		CONTENT += "if( SUSE.packageInstalled(RPM_NAME) ):\n"
 		CONTENT += "\tINSTALLED_VERSION = SUSE.compareRPM(RPM_NAME, RPM_VERSION_FIXED)\n"
@@ -228,6 +233,26 @@ def patternBasic():
 
 	CONTENT += "Core.printPatternResults()\n\n"
 
+def fetchTitle():
+	global MD
+
+	if( VERBOSE ):
+		print(DISPLAY.format('Reading URL ', str(MD['tidurl'])))
+
+	req = Request(MD['tidurl'])
+	try:
+		response = urlopen(req)
+	except HTTPError as e:
+		MD['title'] = 'Enter title manually'
+	except URLError as e:
+		MD['title'] = 'Enter title manually'
+	else:
+		html = response.read()	
+		MD['title'] = str(html).split('<title>')[1].split('</title>')[0].replace(' | Support | SUSE', '')
+
+	if( VERBOSE ):
+		print(DISPLAY.format('Title', str(MD['title'])))
+
 def savePattern():
 	global MD
 	global CONTENT
@@ -238,25 +263,26 @@ def savePattern():
 		FILE_OPEN = open(PATFILE, "w")
 		FILE_OPEN.write(CONTENT)
 		FILE_OPEN.close()
-		os.chmod(PATFILE, 0755)
-	except Exception, error:
-		print " ERROR: Cannot create " + str(PATFILE) + ": " + str(error)
+#		os.chmod(PATFILE, 0755)
+		os.chmod(PATFILE, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+	except OSError:
+		print(" ERROR: Cannot create " + str(PATFILE) + ": " + str(error))
 
 def usage():
 	print("Usage:")
-	print("pkgver <class,category,component,tid#,bug#,name,rpm,rpm_version_fixed,rpm_version_broke,confirm>")
-	print
-	print("  class: SLE,HAE,SUMA,Security,Custom")
-	print("  category: Category name")
-	print("  component: Component name")
-	print("  tid#: TID number only")
-	print("  bug#: Bug number only")
-	print("  name: Pattern name")
-	print("  rpm: Affected RPM package name")
-	print("  rpm_version_fixed: RPM package version that fixes the issue")
-	print("  rpm_version_broke: RPM package version that is broke. 0 = Any version less than the fixed version")
-	print("  confirm: 0 = no confirmation condition available, 1 = add confirmation condition code")
-	print
+	print("pkgver <class,category,component,tid#,bug#,name,rpm,fixed,broke,confirm>")
+	print()
+	print("  class:      SLE,HAE,SUMA,Security,Custom")
+	print("  category:   Category name")
+	print("  component:  Component name")
+	print("  tid#:       TID number only")
+	print("  bug#:       Bug number only")
+	print("  name:       Pattern name")
+	print("  rpm:        Affected RPM package name")
+	print("  fixed:      RPM package version that fixes the issue")
+	print("  broke:      RPM package version that is broke. 0 = Any version less than the fixed version")
+	print("  confirm:    0 = no confirmation condition available, 1 = add confirmation condition code")
+	print()
 
 def showSummary():
 	global MD
@@ -275,7 +301,7 @@ if( len(sys.argv[1:]) > 0 ):
 		title()
 		usage()
 		print("ERROR: " + str(err)) # will print something like "option -b not recognized"
-		print
+		print()
 		sys.exit(2)
 else:
 	title()
@@ -306,19 +332,20 @@ else:
 if VERBOSE:
     title()
 OPTIONS_LIST = OPTIONS.split(',')
-if( len(OPTIONS_LIST) < 10 ):
-	print "\nERROR: Invalid option list - missing value(s)\n"
+if( len(OPTIONS_LIST) < OPTIONS_REQ ):
+	print("\nERROR: Invalid option list - missing value(s)\n")
 	usage()
 	sys.exit(1)
-if( len(OPTIONS_LIST) > 10 ):
-	print "\nERROR: Invalid option list - too many value(s)\n"
+if( len(OPTIONS_LIST) > OPTIONS_REQ ):
+	print("\nERROR: Invalid option list - too many value(s)\n")
 	usage()
 	sys.exit(1)
 
 createMetadata(OPTIONS)
+fetchTitle()
 
 if( VERBOSE ):
-	print DISPLAY.format('Pattern ', "./" +str(MD['patfile']))
+	print(DISPLAY.format('Pattern ', "./" +str(MD['patfile'])))
 
 patternHeader(OPTIONS)
 if( MD['confirmed'] ):
@@ -332,7 +359,7 @@ if( not VERBOSE ):
 	if( not QUIET ):
 		showSummary()
 else:
-	print
+	print()
 
 sys.exit(RCODE)
 
