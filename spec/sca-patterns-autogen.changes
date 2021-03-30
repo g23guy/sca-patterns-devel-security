@@ -1,11 +1,8 @@
 -------------------------------------------------------------------
-Tue Mar 30 15:13:16 UTC 2021 - jason.record@suse.com
+Tue Mar 30 21:22:04 UTC 2021 - Jason Record <jason.record@suse.com>
 
 - New files added
-  + base.py Creates a basic pattern template
-  + patgvc Creates a .changes template for newly added patterns
   + sagvc Creates a .changes template for newly added security patterns
-  + patautogen.ini Future configuration file for pkgver.py and base.py
 
 -------------------------------------------------------------------
 Wed Mar  3 21:53:47 UTC 2021 - jason.record@gmail.com
