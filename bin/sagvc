@@ -1,12 +1,12 @@
 #!/bin/bash
-SVER='0.0.1_dev2'
+SVER='0.0.6'
 ##############################################################################
 # sagvc - Security Announcement Patterns Change Log Generator
 # Copyright (C) 2021 SUSE LLC
 #
 # Description:  Creates a list of new security announcement pattern entry for
 #               the change log
-# Modified:     2021 Mar 03
+# Modified:     2021 Jun 02
 #
 ##############################################################################
 #
@@ -26,6 +26,7 @@ SVER='0.0.1_dev2'
 #     Jason Record <jason.record@suse.com>
 #
 ##############################################################################
+
 echo "##############################################################"
 echo "# SA Change Log Generator v$SVER"
 echo "##############################################################"
@@ -40,8 +41,9 @@ VER=$(grep -i version\: spec/*.spec | awk '{print $NF}')
 SAIDS=''
 SA_COUNT=0
 SRC_DATE=$(date +"%b %Y")
-echo "- Changes to version ${VER}"
-for i in $(git status | grep patterns)
+COMMITTED=$(for i in $(git log origin/master..master | grep commit | awk '{print $NF}'); do git diff-tree --no-commit-id --name-only -r $i; done | grep 'patterns/')
+LOCAL=$(git status | grep 'patterns/' | sed -e "s/new file:[[:space:]]*//;s/^[[:space:]]//")
+for i in $LOCAL $COMMITTED
 do
 	(( SA_COUNT++ ))
 	PATFILE=$(basename $i)
@@ -49,7 +51,9 @@ do
 	SAPART2=$(awk -F_ '{print $(NF-1)}' <<< $PATFILE)
 	SAIDS="$(printf ${SAPART1}:${SAPART2}) ${SAIDS}"
 done
-printf "  + ${SRC_DATE} New Security Announcement Patterns ($SA_COUNT) for "
+echo "- Changes in version ${VER}"
+echo "  - New security announcement patterns (${SA_COUNT})"
+printf "    + ${SRC_DATE} ($SA_COUNT) for "
 echo $SAIDS
 echo
 echo "${SRC_DATE} New Security Announcement Patterns $SA_COUNT"
