@@ -1,4 +1,4 @@
-# sca-patterns-autogen
+# sca-patterns-devel-security
 Tools to automatically generate patterns or templates for patterns.
 
 Included: 
