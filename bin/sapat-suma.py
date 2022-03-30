@@ -31,7 +31,7 @@ import getopt
 import os
 import re
 import datetime
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 AUTHOR = 'Jason Record <jason.record@suse.com>'
 MD = {
@@ -62,9 +62,9 @@ QUIET = False
 RCODE = 0
 
 def title():
-	print "\n##################################################"
-	print "# SUMA Security Announcement Parser, v" + str(SVER)
-	print "##################################################"
+	print("\n##################################################")
+	print("# SUMA Security Announcement Parser, v" + str(SVER))
+	print("##################################################")
 
 def createPattern(VERSION):
 #	print "  >createPattern(" + str(VERSION) + ")"
@@ -73,7 +73,7 @@ def createPattern(VERSION):
 	PATTERN_ID = PATTERN_ID.replace(':', '_')
 #	print "Creating pattern with " + str(len(PACKAGES)) + " packages: " + PATTERN_ID
 	if( VERBOSE ):
-		print DISPLAY.format('Pattern', str(PATTERN_ID) + " (" +  str(len(PACKAGES)) + " packages)")
+		print(DISPLAY.format('Pattern', str(PATTERN_ID) + " (" +  str(len(PACKAGES)) + " packages)"))
 
 	TODAY = datetime.date.today()
 	# Build pattern file content
@@ -145,9 +145,9 @@ def createPattern(VERSION):
 		FILE_OPEN = open(PATFILE, "w")
 		FILE_OPEN.write(CONTENT)
 		FILE_OPEN.close()
-		os.chmod(PATFILE, 0755)
-	except Exception, error:
-		print " ERROR: Cannot create " + str(PATFILE) + ": " + str(error)
+		os.chmod(PATFILE, 0o755)
+	except Exception as error:
+		print(" ERROR: Cannot create " + str(PATFILE) + ": " + str(error))
 #	print "  <createPattern: " + str(FILE_OPEN)
 
 def getSecurityAnnouncement(FILE):
@@ -157,19 +157,19 @@ def getSecurityAnnouncement(FILE):
 	FILE_OPEN = MD['file']
 	MD['url'] = MD['url'].replace("//" + FILE_OPEN, "/" + FILE_OPEN)
 	if( VERBOSE ):
-		print DISPLAY.format('Downloading URL', str(MD['url']))
+		print(DISPLAY.format('Downloading URL', str(MD['url'])))
 	try:
-		urllib.urlretrieve(MD['url'], FILE_OPEN)
-	except Exception, error:
-		print " ERROR: Cannot download " + str(MD['url']) + ": " + str(error)
+		urllib.request.urlretrieve(MD['url'], FILE_OPEN)
+	except Exception as error:
+		print(" ERROR: Cannot download " + str(MD['url']) + ": " + str(error))
 		sys.exit()
 
 	if( VERBOSE ):
-		print DISPLAY.format('Loading File', str(FILE_OPEN))
+		print(DISPLAY.format('Loading File', str(FILE_OPEN)))
 	try:
 		FILE_OPENED = open(FILE_OPEN)
-	except Exception, error:
-		print " ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error)
+	except Exception as error:
+		print(" ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error))
 		sys.exit()
 
 	I = 0
@@ -178,7 +178,7 @@ def getSecurityAnnouncement(FILE):
 		LINE = LINE.strip("\n")
 		if INVALID.search(LINE):
 			FILE = {}
-			print " ERROR: Invalid Security Announcement File: " + str(MD['file'])
+			print(" ERROR: Invalid Security Announcement File: " + str(MD['file']))
 			FILE_OPENED.close()
 			sys.exit()
 		FILE[I] = LINE
@@ -200,9 +200,9 @@ def getMetaData(MD):
 		elif TEXT.startswith("Rating:"):
 			MD['severity'] = TEXT.split()[-1].title()
 	if( VERBOSE ):
-		print DISPLAY.format('Name', str(MD['name']))
-		print DISPLAY.format('Tag', str(MD['tag']))
-		print DISPLAY.format('Severity', str(MD['severity']))
+		print(DISPLAY.format('Name', str(MD['name'])))
+		print(DISPLAY.format('Tag', str(MD['tag'])))
+		print(DISPLAY.format('Severity', str(MD['severity'])))
 #	print "  <getMetaData"
 
 def getAffectedProducts(APLIST):
@@ -229,7 +229,7 @@ def getAffectedProducts(APLIST):
 		elif AffectedProductList.search(FILE[LINE]):
 			STATE = True
 	if( VERBOSE ):
-		print DISPLAY.format('Products', str(len(APLIST)))
+		print(DISPLAY.format('Products', str(len(APLIST))))
 #	print "  <getAffectedProducts: APLIST=" + str(APLIST)
 
 def getVersion(PRODUCT):
@@ -306,12 +306,12 @@ def cleanUp():
 	global MD
 	try:
 		os.unlink(MD['file'])
-	except Exception, error:
-		print " ERROR: Cannot delete " + str(MD['file']) + ": " + str(error)
+	except Exception as error:
+		print(" ERROR: Cannot delete " + str(MD['file']) + ": " + str(error))
 
 def showSummary():
 	global CNT
-	print(" Patterns: " + str(CNT['patterns']) + ", Success: " + str(CNT['success']) + ", Skipped: " + str(CNT['skipped']) + ", Errors: " + str(CNT['errors']))
+	print((" Patterns: " + str(CNT['patterns']) + ", Success: " + str(CNT['success']) + ", Skipped: " + str(CNT['skipped']) + ", Errors: " + str(CNT['errors'])))
 
 ###########################################################################
 # MAIN
@@ -325,8 +325,8 @@ if( len(sys.argv[1:]) > 0 ):
 		# print help information and exit:
 		title()
 		usage()
-		print("ERROR: " + str(err)) # will print something like "option -b not recognized"
-		print
+		print(("ERROR: " + str(err))) # will print something like "option -b not recognized"
+		print()
 		sys.exit(2)
 else:
 	title()
@@ -375,18 +375,18 @@ for I in APLIST:
 		if( PACKAGE_ERRORS > 0 ):
 			PACKAGES = {}
 			FAILURE = True
-			print " ERROR: Detected " + str(PACKAGE_ERRORS) + " package version errors for " + str(APLIST[I])
+			print(" ERROR: Detected " + str(PACKAGE_ERRORS) + " package version errors for " + str(APLIST[I]))
 		createPattern(getVersion(APLIST[I]))
 cleanUp()
 if( FAILURE ):
 	CNT['errors'] += 1
 	if( VERBOSE ):
-		print DISPLAY.format('Status', '** FAILURE **')
+		print(DISPLAY.format('Status', '** FAILURE **'))
 	RCODE = 1
 else:
 	CNT['success'] += 1
 	if( VERBOSE ):
-		print DISPLAY.format('Status', 'Success')
+		print(DISPLAY.format('Status', 'Success'))
 if( not VERBOSE ):
 	if( not QUIET ):
 		showSummary()

@@ -1,8 +1,9 @@
 #!/bin/bash
 
-SVER='0.0.4'
+SVER='0.0.5'
 BASE_CURRENT='/home/opt/gitwork'
-BASE_NEW='/home/opt/chksecurity/patterns'
+BASE_DEFAULT='/home/opt/chksecurity/patterns'
+BASE_DIR="$BASE_DEFAULT"
 title() {
 	echo "##################################"
 	echo "# Distribute Patterns v${SVER}"
@@ -17,10 +18,14 @@ SLE15="sle15sp5 sle15sp4 sle15sp3 sle15sp2 sle15sp1 sle15sp0"
 TOTAL=0
 clear
 title
-if [[ -d $BASE_NEW ]]; then
-	cd $BASE_NEW
+BASE_OPT="$1"
+if [[ -n $BASE_OPT ]]; then
+	BASE_DIR=$BASE_OPT
+fi
+if [[ -d $BASE_DIR ]]; then
+	cd $BASE_DIR
 else
-	echo "Error: Directory not found - $BASE_NEW"
+	echo "Error: Directory not found - $BASE_DIR"
 	echo "Run chksecurity"
 	echo
 	exit 1

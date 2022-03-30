@@ -1,11 +1,11 @@
-#!/usr/bin/python
-SVER = '1.6.1'
+#!/usr/bin/python3
+SVER = '1.6.4'
 ##############################################################################
 # sapat.py - Security Advisory Announcement Pattern Generator
-# Copyright (C) 2021 SUSE LLC
+# Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2021 Mar 03
+# Modified:     2022 Mar 10
 #
 ##############################################################################
 #
@@ -31,7 +31,7 @@ import os
 import re
 import getopt
 import datetime
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 AUTHOR = 'Jason Record <jason.record@suse.com>'
 MD = {
@@ -46,6 +46,7 @@ MD = {
 CNT = {
 	'errors': 0,
 	'skipped': 0,
+	'duplicate': 0,
 	'success': 0,
 	'patterns': 0
 }
@@ -61,16 +62,18 @@ ERR_PKG_EMPTY = False
 DISTRO = ''
 DISPLAY = "{0:15} = {1}"
 VERBOSE = True
+QUIET = False
 RCODE = 0
 
 def title():
-	print "\n##################################################"
-	print "# Security Announcement Parser, v" + str(SVER)
-	print "##################################################"
+	print("\n##################################################")
+	print("# Security Announcement Parser, v" + str(SVER))
+	print("##################################################")
 
 def createPattern():
 	global PACKAGES
 	global DISTRO
+	global CNT
 	(DIST, PATCH, LTSS_STR) = DISTRO.split('.')
 	if( len(LTSS_STR) > 0 ):
 		ADD_LTSS_STR="." + LTSS_STR
@@ -80,11 +83,11 @@ def createPattern():
 	PATTERN_ID = PATTERN_ID.replace(':', '_')
 #	print "Creating pattern with " + str(len(PACKAGES)) + " packages: " + PATTERN_ID
 	if( VERBOSE ):
-		print DISPLAY.format('Pattern', str(PATTERN_ID) + " (" +  str(len(PACKAGES)) + " packages)")
+		print(DISPLAY.format('Pattern', str(PATTERN_ID) + " (" +  str(len(PACKAGES)) + " packages)"))
 
 	TODAY = datetime.date.today()
 	# Build pattern file content
-	CONTENT = "#!/usr/bin/python\n#\n"
+	CONTENT = "#!/usr/bin/python3\n#\n"
 	CONTENT += "# Title:       " + str(MD['severity']) +" Security Announcement for " + str(MD['name']).replace(':', '') + " " + str(MD['tag']) + "\n"
 	if 'ltss' in LTSS_STR:
 		if( MD['rt_kernel'] ):
@@ -161,17 +164,19 @@ def createPattern():
 	# Write the content to disk
 	PATFILE = PATDIR + PATTERN_ID
 	if( os.path.exists(PATFILE) ):
-		print " ERROR: Pattern collision, duplicate " + PATFILE
+		CNT['duplicate'] += 1
+		if( VERBOSE ):
+			print(" ERROR: Pattern collision, duplicate " + PATFILE)
 		cleanUp()
-		sys.exit(4)
+#		sys.exit(4)
 	else:
 		try:
 			FILE_OPEN = open(PATFILE, "w")
 			FILE_OPEN.write(CONTENT)
 			FILE_OPEN.close()
-			os.chmod(PATFILE, 0755)
-		except Exception, error:
-			print " ERROR: Cannot create " + str(PATFILE) + ": " + str(error)
+			os.chmod(PATFILE, 0o755)
+		except Exception as error:
+			print(" ERROR: Cannot create " + str(PATFILE) + ": " + str(error))
 
 def getSecurityAnnouncement(FILE):
 	global MD
@@ -180,20 +185,20 @@ def getSecurityAnnouncement(FILE):
 	FILE_OPEN = MD['file']
 	MD['url'] = MD['url'].replace("//" + FILE_OPEN, "/" + FILE_OPEN)
 	if( VERBOSE ):
-		print DISPLAY.format('Downloading URL', str(MD['url']))
+		print(DISPLAY.format('Downloading URL', str(MD['url'])))
 	try:
-		urllib.urlretrieve(MD['url'], FILE_OPEN)
-	except Exception, error:
+		urllib.request.urlretrieve(MD['url'], FILE_OPEN)
+	except Exception as error:
 		if( VERBOSE ):
-			print " ERROR: Cannot download " + str(MD['url']) + ": " + str(error)
+			print(" ERROR: Cannot download " + str(MD['url']) + ": " + str(error))
 		sys.exit()
 
 	if( VERBOSE ):
-		print DISPLAY.format('Loading File', str(FILE_OPEN))
+		print(DISPLAY.format('Loading File', str(FILE_OPEN)))
 	try:
 		FILE_OPENED = open(FILE_OPEN)
-	except Exception, error:
-		print " ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error)
+	except Exception as error:
+		print(" ERROR: Cannot open " + str(FILE_OPEN) + ": " + str(error))
 		cleanUp()
 		sys.exit()
 
@@ -203,7 +208,7 @@ def getSecurityAnnouncement(FILE):
 		LINE = LINE.strip("\n")
 		if INVALID.search(LINE):
 			FILE = {}
-			print " ERROR: Invalid Security Announcement File: " + str(MD['file'])
+			print(" ERROR: Invalid Security Announcement File: " + str(MD['file']))
 			FILE_OPENED.close()
 			cleanUp()
 			sys.exit()
@@ -239,12 +244,12 @@ def getMetaData(MD):
 			MD['severity'] = TEXT.split()[-1].title()
 
 	if( VERBOSE ):
-		print DISPLAY.format('Name', str(MD['name']))
-		print DISPLAY.format('Tag', str(MD['tag']))
-		print DISPLAY.format('Severity', str(MD['severity']))
+		print(DISPLAY.format('Name', str(MD['name'])))
+		print(DISPLAY.format('Tag', str(MD['tag'])))
+		print(DISPLAY.format('Severity', str(MD['severity'])))
 
 def getAffectedProducts(APLIST):
-#	print "  >getAffectedProducts"
+#	print("  >getAffectedProducts")
 	AffectedProductList = re.compile("^Affected Products:", re.IGNORECASE)
 	GetDistro = re.compile("SUSE Linux Enterprise Server [0-9]|SUSE Linux Enterprise Desktop [0-9]|SUSE Linux Enterprise Module for Basesystem", re.IGNORECASE)
 	STATE = False
@@ -277,8 +282,8 @@ def getAffectedProducts(APLIST):
 		elif AffectedProductList.search(FILE[LINE]):
 			STATE = True
 	if( VERBOSE ):
-		print DISPLAY.format('Products', str(len(APLIST)))
-#	print "  <getAffectedProducts: APLIST=" + str(APLIST)
+		print(DISPLAY.format('Products', str(len(APLIST))))
+#	print("  <getAffectedProducts: APLIST=" + str(APLIST))
 #	sys.exit(3)
 
 def getDistribution(AP):
@@ -310,26 +315,32 @@ def getDistribution(AP):
 	if( THIS_DISTRO != "Exclude" ):
 		DISTRO = str(OSDISTRO) + "." + str(SP) + "." + str(LTSS_STR)
 	if( VERBOSE ):
-		print DISPLAY.format('Distribution', AP)
+		print(DISPLAY.format('Distribution', AP))
 #	print "  <getDistribution: DISTRO=" + str(DISTRO)
 	
 def getPackages(AFFECTED_DISTRO):
-#	print "\n======================================="
-#	print "  >getPackages(" + str(AFFECTED_DISTRO) + ")"
+#	print("\n=======================================")
+#	print("  >getPackages(" + str(AFFECTED_DISTRO) + ")")
 	global PACKAGES
 	global PACKAGE_ERRORS
 	IN_PACKAGE_LIST = False
 	PROD_LIST = False
 	getDistribution(AFFECTED_DISTRO)
 
+#	print(DISTRO)
+#	print(DISTRO.split('.'))
 	(VER_MAJOR, VER_MINOR, LTSS_STR) = DISTRO.split('.')
+#	print("VER_MAJOR='" + str(VER_MAJOR) + "', VER_MINOR='" + str(VER_MINOR) + "', LTSS_STR='" + str(LTSS_STR) + "'")
+#	print(AFFECTED_DISTRO)
+#	print()
 	PL = re.compile(AFFECTED_DISTRO, re.IGNORECASE)
 	for LINE in FILE:
 		TEXT = FILE[LINE].strip().replace('<br>', '')
 #		if "SUSE Linux Enterprise" in TEXT:
-#			print 'TEXT', TEXT
+#			print('TEXT', TEXT)
 		if( IN_PACKAGE_LIST ):
 			if TEXT.startswith("References:"):
+#				print("END Package List")
 				IN_PACKAGE_LIST = False
 				PROD_LIST = False
 			elif( PROD_LIST ):
@@ -342,13 +353,13 @@ def getPackages(AFFECTED_DISTRO):
 					elif TEXT.endswith(']:'):
 						continue
 					else:
-#						print "Check package = " + str(TEXT)
+#						print("Check package = " + str(TEXT))
 						PARTS = TEXT.split('-')
 						VERSION = PARTS[-2] + '-' + PARTS[-1]
 						del PARTS[-1]
 						del PARTS[-1]
 						NAME = '-'.join(PARTS)
-#						print "NAME|VERSION  = " + str(NAME) + "|" + str(VERSION)
+#						print("NAME|VERSION  = " + str(NAME) + "|" + str(VERSION))
 						if NAME in PACKAGES:
 							if( PACKAGES[NAME] != VERSION ):
 								PACKAGE_ERRORS += 1
@@ -356,33 +367,34 @@ def getPackages(AFFECTED_DISTRO):
 								PACKAGES[NAME] = VERSION
 						else:
 							PACKAGES[NAME] = VERSION
-#						print "PACKAGES(" + str(len(PACKAGES)) + ") = " + str(PACKAGES) + "\n"
+#						print("PACKAGES(" + str(len(PACKAGES)) + ") = " + str(PACKAGES) + "\n")
 			elif PL.search(TEXT):
-#				print "Product Found:", TEXT
+#				print("Product Found:", TEXT)
 				PROD_LIST = True
 		elif TEXT.startswith("Package List:"):
 			IN_PACKAGE_LIST = True
 
 #	for KEY in PACKAGES:
-#		print "  '" + str(KEY) + "': '" + str(PACKAGES[KEY]) + "',"
-#	print "  <getPackages: " + str(len(PACKAGES))
+#		print("  '" + str(KEY) + "': '" + str(PACKAGES[KEY]) + "',")
+#	print("  <getPackages: " + str(len(PACKAGES)))
 
 def cleanUp():
-#	print "  >cleanUp"
+#	print("  >cleanUp")
 	global MD
-	try:
-		os.unlink(MD['file'])
-	except Exception, error:
-		print(" ERROR: Cannot delete " + str(MD['file']) + ": " + str(error))
-#	print "  <cleanUp"
+	if( os.path.exists(MD['file']) ):
+		try:
+			os.unlink(MD['file'])
+		except Exception as error:
+			print((" ERROR: Cannot delete " + str(MD['file']) + ": " + str(error)))
+#	print("  <cleanUp")
 
 def usage():
     print("sapat.py [-qs] <advisory_url>")
-    print
+    print()
 
 def showSummary():
 	global CNT
-	print(" Patterns: " + str(CNT['patterns']) + ", Success: " + str(CNT['success']) + ", Skipped: " + str(CNT['skipped']) + ", Errors: " + str(CNT['errors']))
+	print((" Patterns: " + str(CNT['patterns']) + ", Success: " + str(CNT['success']) + ", Skipped: " + str(CNT['skipped']) + ", Duplicates: " + str(CNT['duplicate']) + ", Errors: " + str(CNT['errors'])))
 
 ###########################################################################
 # MAIN
@@ -396,8 +408,8 @@ if( len(sys.argv[1:]) > 0 ):
 		# print help information and exit:
 		title()
 		usage()
-		print("ERROR: " + str(err)) # will print something like "option -b not recognized"
-		print
+		print(("ERROR: " + str(err))) # will print something like "option -b not recognized"
+		print()
 		sys.exit(2)
 else:
 	title()
@@ -434,6 +446,7 @@ getMetaData(MD)
 getAffectedProducts(APLIST)
 for AP in APLIST:
 	CNT['patterns'] += 1
+
 	PACKAGES = {}
 	PACKAGE_ERRORS = 0
 	getPackages(AP)
@@ -442,31 +455,38 @@ for AP in APLIST:
 		FAILURE = True
 		ERR_PKG_VERSION = True
 		if( VERBOSE ):
-			print " ERROR: Detected " + str(PACKAGE_ERRORS) + " package version errors for SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
+			print(" ERROR: Detected " + str(PACKAGE_ERRORS) + " package version errors for " + str(AP))
 	if( len(PACKAGES) == 0 ):
 		FAILURE = True
 		CNT['errors'] += 1
 		ERR_PKG_EMPTY = True
 		if( VERBOSE ):
-			print " ERROR: Empty package list SUSE Linux Enterprise " + str(VER_MAJOR) + " SP" + str(VER_MINOR)
+			print(" ERROR: Empty package list for " + str(AP))
+
 	createPattern()
+#print("CNT='" + str(CNT))
 cleanUp()
 if( FAILURE ):
-	if( VERBOSE ):
-		print DISPLAY.format('Status', '** FAILURE **')
-	RCODE = 255
+	if( CNT['errors'] < CNT['patterns'] ):
+		if( VERBOSE ):
+			print(DISPLAY.format('Status', '** PARTIAL **'))
+		RCODE = 128
+	else:
+		if( VERBOSE ):
+			print(DISPLAY.format('Status', '** FAILURE **'))
+		RCODE = 255
 elif( len(DISTRO) < 1 ):
 	CNT['skipped'] += 1
 	if( VERBOSE ):
-		print DISPLAY.format('Status', '** SKIPPED **')
-		print DISPLAY.format('  Message', 'No Valid Distros to Process')
+		print(DISPLAY.format('Status', '** SKIPPED **'))
+		print(DISPLAY.format('  Message', 'No Valid Distros to Process'))
 	RCODE = 1
 else:
 	CNT['success'] += 1
 	if( VERBOSE ):
-		print DISPLAY.format('Status', 'Success')
-if( not VERBOSE ):
-	if( not QUIET ):
-		showSummary()
+		print(DISPLAY.format('Status', 'Success'))
+if( not QUIET ):
+	showSummary()
+
 sys.exit(RCODE)
 

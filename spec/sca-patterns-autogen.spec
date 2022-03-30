@@ -12,7 +12,7 @@
 # published by the Open Source Initiative.
 
 Name:         sca-patterns-autogen
-Version:      1.0.3
+Version:      1.1.0
 Release:      0
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only
