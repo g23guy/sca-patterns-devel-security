@@ -1,15 +1,65 @@
 #!/bin/bash
+SVER='1.0.0'
+##############################################################################
+# patterns_distribute - Distribute patterns to their corresponding directories
+# Copyright (C) 2022 SUSE LLC
+#
+# Description:  Moves security patterns to the local github repository linked
+#               to the version of the script.
+# Modified:     2022 Jul 15
+#
+##############################################################################
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; version 2 of the License.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+#  Authors/Contributors:
+#     Jason Record <jason.record@suse.com>
+#
+##############################################################################
+CURRENT_PATDIR="/home/opt/gitwork/"
+PATDIR_BASE='/home/opt/chksecurity'
+PAT_DIR="${PATDIR_BASE}/patterns"
+PAT_ERROR="${PATDIR_BASE}/errors"
+PAT_DUPS="${PATDIR_BASE}/duplicates"
+PAT_LOGS="${PATDIR_BASE}/logs"
+LOG="${PAT_LOGS}/distribute.log"
+CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
 
-SVER='0.0.5'
+
 BASE_CURRENT='/home/opt/gitwork'
-BASE_DEFAULT='/home/opt/chksecurity/patterns'
-BASE_DIR="$BASE_DEFAULT"
+PAT_DIR='/home/opt/chksecurity/patterns'
+BASE_DIR="$PAT_DIR"
+FORMAT="%s: "
+
 title() {
-	echo "##################################"
-	echo "# Distribute Patterns v${SVER}"
-	echo "##################################"
-	echo
+	echo "##################################" | tee $LOG
+	echo "# Distribute Patterns v${SVER}" | tee -a $LOG
+	echo "##################################" | tee -a $LOG
+	echo | tee -a $LOG
 }
+
+log() {
+	echo "$@" >> $LOG
+}
+
+msg() {
+	echo "$@" | tee -a $LOG
+}
+
+msgn() {
+	printf "$FORMAT" $1 | tee -a $LOG
+}
+
 
 SLE10="sle10sp4 sle10sp3 sle10sp2 sle10sp1 sle10sp0"
 SLE11="sle11sp4 sle11sp3 sle11sp2 sle11sp1 sle11sp0"
@@ -25,18 +75,18 @@ fi
 if [[ -d $BASE_DIR ]]; then
 	cd $BASE_DIR
 else
-	echo "Error: Directory not found - $BASE_DIR"
-	echo "Run chksecurity"
+	msg "Error: Directory not found - $BASE_DIR"
+	msg "Run chksecurity"
 	echo
 	exit 1
 fi
 for i in $SLE15 $SLE12 $SLE11 $SLE10
 do
 	COUNT=0
-	printf "%s: " $i
+	msgn $i
 	NUM=$(echo $i | sed -e "s/sle//g;s/sp/\./g")
 	SLE_DIR=$(echo $i | sed -e "s/sp[[:digit:]]//g")
-	PAT_DIR="${BASE_CURRENT}/sca-patterns-${SLE_DIR}/patterns/SLE/${i}"
+	PAT_DIR="${CURRENT_PATDIR}/sca-patterns-${SLE_DIR}/patterns/SLE/${i}"
 	for FILTER in "_${NUM}.py" "_${NUM}.ltss.py"
 	do
 		BASECNT=$(ls -1 *${FILTER} 2>/dev/null | wc -l)
@@ -45,14 +95,14 @@ do
 			if [[ -d $PAT_DIR ]]; then
 				mv *${FILTER} ${PAT_DIR}/
 			else
-				echo "ERROR: Directory not found: $PAT_DIR"
+				msg "ERROR: Directory not found: $PAT_DIR"
 			fi
 		fi
 	done
-	echo $COUNT
+	msg $COUNT
 	TOTAL=$(( TOTAL + COUNT ))
 done
 echo
-echo "Total: $TOTAL"
+msg "Total: $TOTAL"
 echo
 

@@ -1,11 +1,11 @@
 #!/bin/bash
-SVER="1.1.11"
+SVER="1.1.15_dev1"
 ##############################################################################
 # chksecurity - Security Advisory Announcement Checker
-# Copyright (C) 2021 SUSE LLC
+# Copyright (C) 2022 SUSE LLC
 #
 # Description:  Checks and creates SCA patterns for advisories
-# Modified:     2022 Mar 10
+# Modified:     2022 Aug 10
 #
 ##############################################################################
 #
@@ -28,11 +28,6 @@ SVER="1.1.11"
 
 
 #clear
-echo "##############################################################"
-echo "# Check Security Annoucements v$SVER"
-echo "##############################################################"
-# Usage: chksecurity [http://<url>|YYYY-MM|MM]
-#
 URL_BASE="https://lists.suse.com/pipermail/sle-security-updates"
 URL_MONTH=$(date +%B)
 URL_YEAR=$(date +%Y)
@@ -44,6 +39,8 @@ PATDIR_BASE='/home/opt/chksecurity'
 PAT_DIR="${PATDIR_BASE}/patterns"
 PAT_ERROR="${PATDIR_BASE}/errors"
 PAT_DUPS="${PATDIR_BASE}/duplicates"
+PAT_LOGS="${PATDIR_BASE}/logs"
+LOG="${PAT_LOGS}/chksecurity.log"
 CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
 PENDING=0
 SUCCESS=0
@@ -52,6 +49,12 @@ FAILURES=0
 PARTIAL=0
 SKIPPED=0
 UNKNOWN=0
+
+echo "##############################################################" | tee $LOG
+echo "# Check Security Annoucements v$SVER" | tee -a $LOG
+echo "##############################################################" | tee -a $LOG
+# msg "Usage: chksecurity [http://<url>|YYYY-MM|MM]"
+#
 
 getMonthURL() {
 	CHK_MONTH=$1
@@ -71,6 +74,18 @@ getMonthURL() {
 	esac
 }
 
+log() {
+	echo "$@" >> $LOG
+}
+
+msg() {
+	echo "$@" | tee -a $LOG
+}
+
+msgn() {
+	echo -n "$@" | tee -a $LOG
+}
+
 URL_DEFAULT="${URL_BASE}/${URL_YEAR}-${URL_MONTH}/"
 for i in $PAT_DIR $PAT_ERROR $PAT_DUPS
 do
@@ -84,7 +99,7 @@ then
 	URL=${URL_DEFAULT}
 else
 	if echo $URL | grep 'http://' &> /dev/null; then
-		echo untouched
+		msg untouched
 	elif grep '-' <<< $URL &> /dev/null; then
 		if (( ${#URL} > 7 )); then
 			URL="${URL_BASE}/${URL}/"
@@ -103,14 +118,14 @@ else
 		#Assume a year was given on the command line
 		URL="${URL_BASE}/${URL}-${URL_MONTH}/"
 	else
-		echo "Error: Invalid URL"
-		echo "Try:   ${URL_DEFAULT}"
-		echo
+		msg "Error: Invalid URL"
+		msg "Try:   ${URL_DEFAULT}"
+		msg
 		exit 2
 	fi
 fi
 
-echo "URL: $URL"
+msg "URL: $URL"
 #HOST=$(echo $URL | cut -d/ -f3)
 #if ! ping -c1 -w1 $HOST &>/dev/null
 #then
@@ -119,12 +134,12 @@ echo "URL: $URL"
 #	exit 3
 #fi
 
-echo "Downloading security announcement IDs"
+msg "Downloading security announcement IDs"
 SAURL=$(curl --silent $URL)
 if echo "$SAURL" | grep -i 'object not found\!' &>/dev/null
 then
-	echo "  ERROR: URL Not Found"
-	echo
+	msg "  ERROR: URL Not Found"
+	msg
 	exit
 fi
 if echo "$SAURL" | grep -i 'The sle-security-updates.*Archive by thread' &>/dev/null
@@ -133,145 +148,149 @@ then
 	SAIDS=$(echo "$SAURL" | grep '>SUSE-SU-' | awk '{print $2}' | sed -e "s/>/\|/")
 else
 	if echo $URL | grep -v "/$" &>/dev/null; then
-		echo "  ERROR: Missing trailing slash (/) in URL"
-		echo "  Try:   ${URL}/"
+		msg "  ERROR: Missing trailing slash (/) in URL"
+		msg "  Try:   ${URL}/"
 	else
-		echo "  ERROR: Invalid Security Announement Thread URL"
-		echo "$SAURL"
+		msg "  ERROR: Invalid Security Announement Thread URL"
+		msg "$SAURL"
 	fi
 	echo
 	exit
 fi
-echo "Caching SCA Pattern File Paths"
+msg "Caching SCA Pattern File Paths"
 find ${CURRENT_PATDIR} -type f | grep '/patterns/' &> $CACHE_FILE
 TOTAL=$(echo "$SAIDS" | wc -l)
 CURRENT=0
 for i in $SAIDS
 do
-#	echo $i
+#	msg $i
 	SAID=$(echo $i | cut -d\| -f2)
 	SAIDPG=$(echo $i | cut -d\| -f1 | cut -d\" -f2)
+	SAIDURL="${URL}${SAIDPG}"
 	(( CURRENT++ ))
-	echo -n "Checking Patterns for $SAID ($SAIDPG)[${CURRENT}/${TOTAL}]: "
+	msgn "Checking Patterns for $SAID ($SAIDPG)[${CURRENT}/${TOTAL}]: "
 	SAID_SEARCH=$(tr ':' '_' <<< $SAID)
 	PATFOUND=$(grep $SAID_SEARCH $CACHE_FILE | awk -F\/ '{print $NF}' | sort | uniq)
 	if [[ -n "$PATFOUND" ]]
 	then
-		echo Duplicate
+		msg Duplicate
 		(( DUPLICATES++ ))
 	else
-		URL_CONTENT=$(curl --silent ${URL}/${SAIDPG})
+		URL_CONTENT=$(curl --silent ${SAIDURL})
 		AFFECTED_PRODUCTS=$(sed -e "/Affected Products:/I,/___/p" -n <<< $URL_CONTENT)
 		if egrep -i 'suse manager|client-tools' <<< $AFFECTED_PRODUCTS &>/dev/null
 		then
-			echo -n "SUMA "
+			msgn "SUMA "
 			(( PENDING++ ))
-			echo "Skipped"
+			msg "Skipped"
 			(( SKIPPED++ ))
+			log "  + ${SAIDURL}"
 			continue
 # temporary bypass
-			sapat-suma.py -q ${URL}/${SAIDPG}
+			sapat-suma.py -q ${SAIDURL}
 			RC=$?
 			if (( $? ))
 			then
-				echo "** FAILED **"
+				msg "** FAILED **"
 				(( FAILURES++ ))
 			else
-				echo "Done"
+				msg "Done"
 				(( SUCCESS++ ))
 			fi
 		elif egrep -i 'suse linux enterprise desktop|suse linux enterprise server|suse linux enterprise module for basesystem' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo -n "SLE "
+			msgn "SLE "
 			(( PENDING++ ))
-			sapat.py -q ${URL}/${SAIDPG}
+			sasles -q ${SAIDURL}
 			RC=$?
 			if (( RC >= 255 )); then
-				echo "** FAILED **"
+				msg "** FAILED **"
 				(( FAILURES++ ))
 			elif (( RC == 128 )); then
-				echo "** PARTIAL **"
+				msg "** PARTIAL **"
 				(( PARTIAL++ ))
 			elif (( RC == 1 )); then
-				echo "Skipped"
+				msg "Skipped"
 				(( SKIPPED++ ))
 			elif (( RC > 1 )); then
-				echo "Unknown"
+				msg "Unknown"
 				(( UNKNOWN++ ))
 			else
-				echo "Done"
+				msg "Done"
 				(( SUCCESS++ ))
 			fi
 		elif egrep -i 'SUSE Linux Enterprise Real Time Extension' <<< $AFFECTED_PRODUCTS  &>/dev/null
 		then
-			echo -n "SLE Real Time Kernel "
+			msgn "SLE Real Time Kernel "
 			(( PENDING++ ))
-			sapat.py -q ${URL}/${SAIDPG}
+			sapat.py -q ${SAIDURL}
 			RC=$?
 			if (( RC >= 255 )); then
-				echo "** FAILED **"
+				msg "** FAILED **"
 				(( FAILURES++ ))
 			elif (( RC == 1 )); then
-				echo "Skipped"
+				msg "Skipped"
 				(( SKIPPED++ ))
 			elif (( RC > 1 )); then
-				echo "Unknown"
+				msg "Unknown"
 				(( UNKNOWN++ ))
 			else
-				echo "Done"
+				msg "Done"
 				(( SUCCESS++ ))
 			fi
 		elif egrep -i 'SUSE Linux Enterprise Installer' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: Installer"
+			msg "Unsupported: Installer"
 		elif egrep -i 'SUSE Linux Enterprise High Availability' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: HAE"
+			msg "Unsupported: HAE"
 		elif egrep -i 'SUSE Linux Enterprise High Performance Computing|SUSE Linux Enterprise Module for HPC' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: HPC"
+			msg "Unsupported: HPC"
 		elif egrep -i 'SUSE Linux Enterprise Server.*-TERADATA' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: Teradata Specific"
+			msg "Unsupported: Teradata Specific"
 		elif egrep -i 'suse cloud|suse openstack cloud' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: Cloud"
+			msg "Unsupported: Cloud"
 		elif egrep -i 'SUSE Linux Enterprise Software Development Kit' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: SDK"
+			msg "Unsupported: SDK"
 		elif egrep -i 'SUSE Linux Enterprise Live Patching' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: Live Patch"
+			msg "Unsupported: Live Patch"
 		elif egrep -i 'SUSE Studio' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: Studio"
+			msg "Unsupported: Studio"
 		elif egrep -i 'SUSE CaaS Platform' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: CaaS"
+			msg "Unsupported: CaaS"
 		elif egrep -i 'SUSE Enterprise Storage' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: SES"
+			msg "Unsupported: SES"
 		elif egrep -i 'SUSE Linux Enterprise Point of Sale' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: SLEPOS"
+			msg "Unsupported: SLEPOS"
 		elif egrep -i 'SUSE Linux Enterprise Workstation Extension' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: WE"
+			msg "Unsupported: WE"
 		elif egrep -i 'SUSE Linux Enterprise Module for' <<< ${AFFECTED_PRODUCTS} &>/dev/null
 		then
-			echo "Unsupported: Module"
+			msg "Unsupported: Module"
 		else
-			echo "Unsupported"
+			msg "Unsupported"
 		fi
+		log "  + ${SAIDURL}"
 	fi
 done
 echo
-echo "Total Processed:  $PENDING"
-echo "Total Success:    $SUCCESS"
-echo "Total Duplicates: $DUPLICATES"
-echo "Total Partials:   $PARTIAL"
-echo "Total Failures:   $FAILURES"
-echo "Total Skipped:    $SKIPPED"
-echo "Unknown Errors:   $UNKNOWN"
+msg "Total Processed:  $PENDING"
+msg "Total Success:    $SUCCESS"
+msg "Total Duplicates: $DUPLICATES"
+msg "Total Partials:   $PARTIAL"
+msg "Total Failures:   $FAILURES"
+msg "Total Skipped:    $SKIPPED"
+msg "Unknown Errors:   $UNKNOWN"
+msg "Directory:        $PATDIR_BASE"
 rm -f $CACHE_FILE
 echo
