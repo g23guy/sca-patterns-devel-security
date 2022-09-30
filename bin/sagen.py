@@ -39,6 +39,7 @@ from pathlib import Path
 # Global Options
 today = datetime.datetime.today()
 #dirbase = '/home/opt/chksecurity/'
+conf_file = '/etc/opt/autogen.conf'
 dirbase = '/home/opt/sasles/'
 dirlog = dirbase + 'logs/'
 dirpat = dirbase + 'patterns/'
@@ -47,12 +48,6 @@ urlbase = 'https://lists.suse.com/pipermail/sle-security-updates/'
 urllist = ''
 target_url = ''
 all_counters = {'pattern_count_current': 0, 'pattern_count_total': 0, 'a_errors': 0, 'patterns_evaluated': 0, 'patterns_generated': 0, 'patterns_duplicated': 0, 'p_errors': 0}
-# Thread list
-## https://lists.suse.com/pipermail/sle-security-updates/2022-August/
-# SUSE Linux Enterprise Module for Basesystem 15-SP3
-## https://lists.suse.com/pipermail/sle-security-updates/2022-August/011910.html
-# SUSE Linux Enterprise Server 12-SP4-LTSS
-## https://lists.suse.com/pipermail/sle-security-updates/2022-August/011916.html
 
 said_file_pairs = {}
 LOG_QUIET = 0	# turns off messages
@@ -724,6 +719,22 @@ def show_summary():
 
 def clean_up():
 	save_manifest()
+	
+def load_config_file():
+	config_file_dict = {}
+
+	try:
+		f = open(conf_file, "r")
+	except Exception as error:
+		msg.min("ERROR: Cannot open", str(conf_file) + ": " + str(error))
+		sys.exit(3)
+
+	for line in f.readlines():
+		key, value = line.strip("\n").split("=")
+		config_file_dict[key] = value.strip('"')
+	f.close()
+	print(config_file_dict)
+	sys.exit(222)
 
 ##############################################################################
 # Main
@@ -731,8 +742,16 @@ def clean_up():
 
 def main(argv):
 	"main entry point"
-	global today, log_level, all_counters, target_url, dirbase, dirlog, dirpat
+	global today, conf_file, log_level, all_counters, target_url, dirbase, dirlog, dirpat
 	global urlbase, urllist, manifest_file, said_file_pairs, SVER
+
+	if( os.path.exists(conf_file) ):
+		load_conf_file()
+	else:
+		title()
+		print("Error: Configuration file not found - " + conf_file)
+		print()
+		sys.exit(1)
 
 	user_logging = -1
 	try:

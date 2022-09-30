@@ -11,6 +11,9 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
+%define autogenbase autogen
+%define autogenconfdir %{_sysconfdir}/opt/%{autogenbase}
+
 Name:         sca-patterns-autogen
 Version:      1.2.0
 Release:      0
@@ -33,11 +36,15 @@ Tools to generate Security announcement patterns for the SCA Tool
 %install
 pwd;ls -la
 mkdir -p %{buildroot}/usr/local/bin
+mkdir -p %{buildroot}%{autogenconfdir}
 install -m 555 bin/* %{buildroot}/usr/local/bin
+install -m 664 conf/* %{buildroot}%{autogenconfdir}
 
 %files
 %defattr(-,root,root,-)
 /usr/local/bin/*
+%dir %{autogenconfdir}
+%config %attr(664,root,users) %{autogenconfdir}/*
 
 %post
 
