@@ -30,7 +30,7 @@ SVER='1.0.11'
 clear
 LOG="${PAT_LOGS}/validate.log"
 CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
-CONF_FILE="/etc/opt/autogen.conf"
+CONF_FILE="/etc/opt/autogen/autogen.conf"
 CNT=1
 FATALS=0
 DUPLICATES=0

@@ -28,7 +28,7 @@ SVER='1.0.1'
 ##############################################################################
 LOG="${PAT_LOGS}/distribute.log"
 CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
-CONF_FILE="/etc/opt/autogen.conf"
+CONF_FILE="/etc/opt/autogen/autogen.conf"
 BASE_DIR="$PAT_DIR"
 FORMAT="%s: "
 

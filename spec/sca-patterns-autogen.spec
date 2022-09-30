@@ -44,6 +44,7 @@ install -m 664 conf/* %{buildroot}%{autogenconfdir}
 %defattr(-,root,root,-)
 /usr/local/bin/*
 %dir %{autogenconfdir}
+%{autogenconfdir}/*
 %config %attr(664,root,users) %{autogenconfdir}/*
 
 %post

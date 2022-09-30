@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.0-beta3_dev12'
+SVER = '2.0.0-beta3_dev14'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2022 Sep 14
+# Modified:     2022 Sep 30
 #
 ##############################################################################
 #
@@ -39,7 +39,7 @@ from pathlib import Path
 # Global Options
 today = datetime.datetime.today()
 #dirbase = '/home/opt/chksecurity/'
-conf_file = '/etc/opt/autogen.conf'
+conf_file = '/etc/opt/autogen/autogen.conf'
 dirbase = '/home/opt/sasles/'
 dirlog = dirbase + 'logs/'
 dirpat = dirbase + 'patterns/'
