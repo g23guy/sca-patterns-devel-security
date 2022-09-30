@@ -1,11 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 SVER = '1.0.9_dev1'
 ##############################################################################
 # sapat-suma.py - Security Advisory Announcement Pattern Generator for SUMA
-# Copyright (C) 2021 SUSE LLC
+# Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML SUMA pages
-# Modified:     2021 Feb 13
+# Modified:     2022 Sep 30
 #
 ##############################################################################
 #
