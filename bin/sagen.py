@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.0-beta3_dev14'
+SVER = '2.0.0-beta3_dev15'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2022 Sep 30
+# Modified:     2022 Oct 01
 #
 ##############################################################################
 #
@@ -721,6 +721,7 @@ def clean_up():
 	save_manifest()
 	
 def load_config_file():
+	global dirbase, dirlog, dirpat
 	config_file_dict = {}
 
 	try:
@@ -738,7 +739,7 @@ def load_config_file():
 	print(config_file_dict)
 	
 	if config_file_dict['PATDIR_BASE']:
-		dirbase = config_file_dict['PATDIR_BASE']
+		dirbase = config_file_dict['PATDIR_BASE'] + "/"
 		dirlog = dirbase + '/logs/'
 		dirpat = dirbase + '/patterns/'
 	else:
@@ -746,7 +747,6 @@ def load_config_file():
 		print("Error: PATDIR_BASE not found in " + conf_file)
 		print()
 		sys.exit(3)
-	print('dirbase=' + dirbase)
 
 ##############################################################################
 # Main
@@ -765,9 +765,6 @@ def main(argv):
 		print()
 		sys.exit(1)
 
-#%%% dirbase doesn't behave like a global
-	print('dirbase=' + dirbase)
-	sys.exit(222)
 	user_logging = -1
 	try:
 		(optlist, args) = getopt.gnu_getopt(argv[1:], "hql:r:")
