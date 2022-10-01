@@ -40,9 +40,9 @@ from pathlib import Path
 today = datetime.datetime.today()
 #dirbase = '/home/opt/chksecurity/'
 conf_file = '/etc/opt/autogen/autogen.conf'
-dirbase = '/home/opt/sasles/'
-dirlog = dirbase + 'logs/'
-dirpat = dirbase + 'patterns/'
+dirbase = ''
+dirlog = ''
+dirpat = ''
 manifest_file = '' # Records the security URL and target URLs processed successfully
 urlbase = 'https://lists.suse.com/pipermail/sle-security-updates/'
 urllist = ''
@@ -730,11 +730,23 @@ def load_config_file():
 		sys.exit(3)
 
 	for line in f.readlines():
-		key, value = line.strip("\n").split("=")
+		line = line.strip("\n")
+		key, value = line.split('=')
+		value = value.strip('"')
 		config_file_dict[key] = value.strip('"')
 	f.close()
 	print(config_file_dict)
-	sys.exit(222)
+	
+	if config_file_dict['PATDIR_BASE']:
+		dirbase = config_file_dict['PATDIR_BASE']
+		dirlog = dirbase + '/logs/'
+		dirpat = dirbase + '/patterns/'
+	else:
+		title()
+		print("Error: PATDIR_BASE not found in " + conf_file)
+		print()
+		sys.exit(3)
+	print('dirbase=' + dirbase)
 
 ##############################################################################
 # Main
@@ -746,13 +758,16 @@ def main(argv):
 	global urlbase, urllist, manifest_file, said_file_pairs, SVER
 
 	if( os.path.exists(conf_file) ):
-		load_conf_file()
+		load_config_file()
 	else:
 		title()
 		print("Error: Configuration file not found - " + conf_file)
 		print()
 		sys.exit(1)
 
+#%%% dirbase doesn't behave like a global
+	print('dirbase=' + dirbase)
+	sys.exit(222)
 	user_logging = -1
 	try:
 		(optlist, args) = getopt.gnu_getopt(argv[1:], "hql:r:")

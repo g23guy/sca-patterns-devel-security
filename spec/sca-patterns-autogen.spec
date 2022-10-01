@@ -38,7 +38,7 @@ pwd;ls -la
 mkdir -p %{buildroot}/usr/local/bin
 mkdir -p %{buildroot}%{autogenconfdir}
 install -m 555 bin/* %{buildroot}/usr/local/bin
-install -m 664 conf/* %{buildroot}%{autogenconfdir}
+install -m 644 conf/* %{buildroot}%{autogenconfdir}
 
 %files
 %defattr(-,root,root,-)

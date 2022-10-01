@@ -1,12 +1,13 @@
 #!/bin/bash
-SVER='1.0.11'
+SVER='1.0.12'
+CONF_FILE="/etc/opt/autogen/autogen.conf"
 ##############################################################################
 # patterns_validate - Validate all new patterns against supportconfigs
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Runs new security patterns against supportconfigs in the
 #               archive directory using the pat tool.
-# Modified:     2022 Sep 30
+# Modified:     2022 Oct 01
 #
 ##############################################################################
 #
@@ -27,20 +28,29 @@ SVER='1.0.11'
 #
 ##############################################################################
 
-clear
+title() {
+	echo "#####################################################"
+	echo "#  Validating Proposed SCA Patterns, v${SVER}"
+	echo "#####################################################"
+}
+
+if [[ -s $CONF_FILE ]]; then
+	. $CONF_FILE
+else
+	clear
+	title
+	echo "Error: File not found - $CONF_FILE"
+	exit 1
+fi
+
 LOG="${PAT_LOGS}/validate.log"
 CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
-CONF_FILE="/etc/opt/autogen/autogen.conf"
 CNT=1
 FATALS=0
 DUPLICATES=0
 TOTAL=$(ls -1 ${PAT_DIR}/*\.py ${PAT_DIR}/*\.pl 2>/dev/null | wc -l)
 SIZE=${#TOTAL}
 FORMAT="%0${SIZE}d of %0${SIZE}d => %s\n"
-
-echo "#####################################################" | tee $LOG
-echo "#  Validating Proposed SCA Patterns, v${SVER}" | tee -a $LOG
-echo "#####################################################" | tee -a $LOG
 
 log() {
 	echo "$@" >> $LOG
@@ -54,24 +64,19 @@ msgn() {
 	printf "$FORMAT" $1 $2 "$3" | tee -a $LOG
 }
 
-if [[ -s $CONF_FILE ]]; then
-	. $CONF_FILE
-else
-	echo "Error: File not found - $CONF_FILE"
-	exit 1
-fi
-
 if [[ -n $1 ]]; then
 	BASE="$1"
 fi
 
+clear
+title
 msg "# Validating patterns in ${PAT_DIR}"
 #msg "# Use $(basename $0) [/path/to/patterns]"
 msg
 
 if (( TOTAL > 0 )); then
 	msg "# Generating pre-existing pattern list"
-	find ${CURRENT_PATDIR} -type f | grep /patterns/ &> $CACHE_FILE
+	find ${GITHUB_PATTERN_REPO} -type f | grep /patterns/ &> $CACHE_FILE
 	cd $PAT_DIR
 	for i in $(ls -1 ${PAT_DIR}/*\.py ${PAT_DIR}/*\.pl 2>/dev/null)
 	do
