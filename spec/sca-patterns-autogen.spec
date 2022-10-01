@@ -15,7 +15,7 @@
 %define autogenconfdir %{_sysconfdir}/opt/%{autogenbase}
 
 Name:         sca-patterns-autogen
-Version:      1.2.0
+Version:      1.2.1
 Release:      0
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only
