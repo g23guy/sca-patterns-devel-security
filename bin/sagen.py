@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-SVER = '2.0.0-beta3_dev15'
+SVER = '2.0.0-beta4'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022 SUSE LLC
@@ -38,7 +38,6 @@ from pathlib import Path
 
 # Global Options
 today = datetime.datetime.today()
-#dirbase = '/home/opt/chksecurity/'
 conf_file = '/etc/opt/autogen/autogen.conf'
 dirbase = ''
 dirlog = ''
@@ -736,7 +735,7 @@ def load_config_file():
 		value = value.strip('"')
 		config_file_dict[key] = value.strip('"')
 	f.close()
-	print(config_file_dict)
+	#print(config_file_dict)
 	
 	if config_file_dict['PATDIR_BASE']:
 		dirbase = config_file_dict['PATDIR_BASE'] + "/"
