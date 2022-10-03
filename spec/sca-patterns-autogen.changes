@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Mon Oct  3 17:59:22 UTC 2022 - Jason Record <jason.record@suse.com>
+
+- Changes to 1.2.2
+  + Added sagen.py
+  + Added /etc/opt/autogen/autogen.conf
+  + patterns_validate, patterns_distribute and sagen.py use autogen.conf
+
+-------------------------------------------------------------------
 Wed Mar 30 18:56:36 UTC 2022 - Jason Record <jason.record@suse.com>
 
 - Ports to python3

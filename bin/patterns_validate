@@ -1,5 +1,5 @@
 #!/bin/bash
-SVER='1.0.12'
+SVER='1.0.13'
 CONF_FILE="/etc/opt/autogen/autogen.conf"
 ##############################################################################
 # patterns_validate - Validate all new patterns against supportconfigs
@@ -48,6 +48,7 @@ CACHE_FILE="${PATDIR_BASE}/_current_pattern_list.txt"
 CNT=1
 FATALS=0
 DUPLICATES=0
+VALID=0
 TOTAL=$(ls -1 ${PAT_DIR}/*\.py ${PAT_DIR}/*\.pl 2>/dev/null | wc -l)
 SIZE=${#TOTAL}
 FORMAT="%0${SIZE}d of %0${SIZE}d => %s\n"
@@ -95,14 +96,18 @@ if (( TOTAL > 0 )); then
 				(( FATALS++ ))
 				msg "$OUTPUT"
 				mv $i $PAT_ERROR
+			else
+				(( VALID++ ))
 			fi
 #			echo "$OUTPUT"
 		fi
 		(( CNT++ ))
 	done
 	msg
-	msg "Invalid Patterns:  $FATALS"
+	msg "Total Patterns:    $TOTAL"
+	msg "Valid Patterns:    $VALID"
 	msg "Dulicate Patterns: $DUPLICATES"
+	msg "Invalid Patterns:  $FATALS"
 else
 	msg "No patterns available for validation, run chksecurity"
 fi
