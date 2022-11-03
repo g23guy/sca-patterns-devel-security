@@ -11,11 +11,11 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-%define autogenbase autogen
+%define autogenbase patdevel
 %define autogenconfdir %{_sysconfdir}/opt/%{autogenbase}
 
 Name:         sca-patterns-autogen
-Version:      1.2.2
+Version:      1.2.3
 Release:      0
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only
