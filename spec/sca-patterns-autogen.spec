@@ -18,13 +18,14 @@
 
 Name:         sca-patterns-autogen
 Version:      1.2.2
-Release:      221103_dev1
+Release:      221103_dev5
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only
 URL:          https://github.com/g23guy/sca-patterns-autogen
 Group:        System/Monitoring
 Source:       %{name}-%{version}.tar.gz
 Requires:     /usr/bin/python3
+Requires:     sca-patterns-devel
 BuildArch:    noarch
 
 %description
@@ -39,7 +40,10 @@ Tools to generate Security announcement patterns for the SCA Tool
 pwd;ls -la
 mkdir -p %{buildroot}/usr/local/bin
 mkdir -p %{buildroot}%{autogenconfdir}
-mkdir -p %{buildroot}%{autogendir}
+mkdir -p %{buildroot}%{autogendir}/patterns
+mkdir -p %{buildroot}%{autogendir}/logs
+mkdir -p %{buildroot}%{autogendir}/errors
+mkdir -p %{buildroot}%{autogendir}/duplicates
 install -m 555 bin/* %{buildroot}/usr/local/bin
 install -m 644 conf/* %{buildroot}%{autogenconfdir}
 
@@ -48,7 +52,11 @@ install -m 644 conf/* %{buildroot}%{autogenconfdir}
 /usr/local/bin/*
 %dir %{autogenconfdir}
 %dir %{autogenbasedir}
-%dir %{autogendir}
+%dir %attr(775,root,users) %{autogendir}
+%dir %attr(775,root,users) %{autogendir}/patterns
+%dir %attr(775,root,users) %{autogendir}/logs
+%dir %attr(775,root,users) %{autogendir}/errors
+%dir %attr(775,root,users) %{autogendir}/duplicates
 %{autogenconfdir}/*
 %config %attr(664,root,users) %{autogenconfdir}/*
 

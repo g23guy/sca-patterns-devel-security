@@ -738,8 +738,8 @@ def load_config_file():
 	#print(config_file_dict)
 	
 	dirbase = config_file_dict['PATDIR_BASE'] + "/"
-	dirlog = dirbase + "/logs"
-	dirpat = dirbase + "/patterns"
+	dirlog = dirbase + "/logs/"
+	dirpat = dirbase + "/patterns/"
 	for chkdir in [dirpat, dirlog]:
 		if not os.path.exists(chkdir):
 			print("ERROR: Directory not found - " + chkdir)
