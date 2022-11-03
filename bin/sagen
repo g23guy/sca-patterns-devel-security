@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.0-beta4'
+SVER = '2.0.0-beta5'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2022 Oct 01
+# Modified:     2022 Nov 03
 #
 ##############################################################################
 #
@@ -38,7 +38,7 @@ from pathlib import Path
 
 # Global Options
 today = datetime.datetime.today()
-conf_file = '/etc/opt/autogen/autogen.conf'
+conf_file = '/etc/opt/patdevel/autogen.conf'
 dirbase = ''
 dirlog = ''
 dirpat = ''
@@ -737,15 +737,13 @@ def load_config_file():
 	f.close()
 	#print(config_file_dict)
 	
-	if config_file_dict['PATDIR_BASE']:
-		dirbase = config_file_dict['PATDIR_BASE'] + "/"
-		dirlog = dirbase + '/logs/'
-		dirpat = dirbase + '/patterns/'
-	else:
-		title()
-		print("Error: PATDIR_BASE not found in " + conf_file)
-		print()
-		sys.exit(3)
+	dirbase = config_file_dict['PATDIR_BASE'] + "/"
+	dirlog = dirbase + "/logs"
+	dirpat = dirbase + "/patterns"
+	for chkdir in [dirpat, dirlog]:
+		if not os.path.exists(chkdir):
+			print("ERROR: Directory not found - " + chkdir)
+			sys.exit(5)
 
 ##############################################################################
 # Main

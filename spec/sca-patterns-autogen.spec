@@ -13,10 +13,12 @@
 
 %define autogenbase patdevel
 %define autogenconfdir %{_sysconfdir}/opt/%{autogenbase}
+%define autogenbasedir %{_localstatedir}/opt/%{autogenbase}
+%define autogendir %{autogenbasedir}/autogen
 
 Name:         sca-patterns-autogen
-Version:      1.2.3
-Release:      0
+Version:      1.2.2
+Release:      221103_dev1
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only
 URL:          https://github.com/g23guy/sca-patterns-autogen
@@ -37,6 +39,7 @@ Tools to generate Security announcement patterns for the SCA Tool
 pwd;ls -la
 mkdir -p %{buildroot}/usr/local/bin
 mkdir -p %{buildroot}%{autogenconfdir}
+mkdir -p %{buildroot}%{autogendir}
 install -m 555 bin/* %{buildroot}/usr/local/bin
 install -m 644 conf/* %{buildroot}%{autogenconfdir}
 
@@ -44,6 +47,8 @@ install -m 644 conf/* %{buildroot}%{autogenconfdir}
 %defattr(-,root,root,-)
 /usr/local/bin/*
 %dir %{autogenconfdir}
+%dir %{autogenbasedir}
+%dir %{autogendir}
 %{autogenconfdir}/*
 %config %attr(664,root,users) %{autogenconfdir}/*
 

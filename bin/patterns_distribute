@@ -1,12 +1,12 @@
 #!/bin/bash
-SVER='1.0.2'
+SVER='1.0.3'
 ##############################################################################
 # patterns_distribute - Distribute patterns to their corresponding directories
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Moves security patterns to the local github repository linked
 #               to the version of the script.
-# Modified:     2022 Oct 01
+# Modified:     2022 Nov 03
 #
 ##############################################################################
 #
@@ -26,7 +26,7 @@ SVER='1.0.2'
 #     Jason Record <jason.record@suse.com>
 #
 ##############################################################################
-CONF_FILE="/etc/opt/autogen/autogen.conf"
+CONF_FILE="/etc/opt/patdevel/autogen.conf"
 
 title() {
 	echo "##################################"
@@ -40,6 +40,15 @@ title
 
 if [[ -s $CONF_FILE ]]; then
 	. $CONF_FILE
+	PAT_DIR="${PATDIR_BASE}/patterns"
+	PAT_ERROR="${PATDIR_BASE}/errors"
+	PAT_DUPS="${PATDIR_BASE}/duplicates"
+	PAT_LOGS="${PATDIR_BASE}/logs"
+	for DIR in ${PATDIR_LIST}
+	do
+		mkdir -p ${PATDIR_BASE}/$DIR
+		(( $? )) && { echo "Error creating directory - ${DIR}"; exit 1; }
+	done
 else
 	echo "Error: File not found - $CONF_FILE"
 	exit 1

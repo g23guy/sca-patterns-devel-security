@@ -1,10 +1,11 @@
 -------------------------------------------------------------------
-Thu Nov  3 18:59:10 UTC 2022 - jason.record@suse.com
+Thu Nov  3 20:38:18 UTC 2022 - jason.record@suse.com
 
 - Changes to 1.2.3
   + Removed old scripts replaced by sagen
   + Renamed sagen.py to sagen
   + Changed conf location to /etc/opt/patdevel/autogen.conf
+  + Use changes to the conf file
 
 -------------------------------------------------------------------
 Mon Oct  3 17:59:22 UTC 2022 - Jason Record <jason.record@suse.com>

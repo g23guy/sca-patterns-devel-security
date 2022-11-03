@@ -1,13 +1,13 @@
 #!/bin/bash
-SVER='1.0.13'
-CONF_FILE="/etc/opt/autogen/autogen.conf"
+SVER='1.0.14'
+CONF_FILE="/etc/opt/patdevel/autogen.conf"
 ##############################################################################
 # patterns_validate - Validate all new patterns against supportconfigs
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Runs new security patterns against supportconfigs in the
 #               archive directory using the pat tool.
-# Modified:     2022 Oct 01
+# Modified:     2022 Nov 03
 #
 ##############################################################################
 #
@@ -36,6 +36,15 @@ title() {
 
 if [[ -s $CONF_FILE ]]; then
 	. $CONF_FILE
+	PAT_DIR="${PATDIR_BASE}/patterns"
+	PAT_ERROR="${PATDIR_BASE}/errors"
+	PAT_DUPS="${PATDIR_BASE}/duplicates"
+	PAT_LOGS="${PATDIR_BASE}/logs"
+	for DIR in ${PATDIR_LIST}
+	do
+		mkdir -p ${PATDIR_BASE}/$DIR
+		(( $? )) && { echo "Error creating directory - ${DIR}"; exit 1; }
+	done
 else
 	clear
 	title
