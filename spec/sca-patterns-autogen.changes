@@ -1,7 +1,8 @@
 -------------------------------------------------------------------
-Fri Nov  4 16:41:28 UTC 2022 - jason.record@suse.com
+Fri Nov  4 18:56:46 UTC 2022 - jason.record@suse.com
 
 - Used pat -q to evaluate patterns
+- Updated conf file comments
 
 -------------------------------------------------------------------
 Thu Nov  3 20:38:18 UTC 2022 - jason.record@suse.com
