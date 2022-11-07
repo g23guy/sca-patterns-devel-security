@@ -103,7 +103,7 @@ if (( TOTAL > 0 )); then
 			RESULT=$?
 			if (( RESULT > 0 )); then
 				(( FATALS++ ))
-				msg " + Fatal"
+				msg " Fatal: pat -v ${PAT_ERROR}/${FILE}"
 				mv $i $PAT_ERROR
 			else
 				(( VALID++ ))

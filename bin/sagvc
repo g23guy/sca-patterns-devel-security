@@ -1,12 +1,12 @@
 #!/bin/bash
-SVER='0.0.6'
+SVER='1.0.0'
 ##############################################################################
 # sagvc - Security Announcement Patterns Change Log Generator
-# Copyright (C) 2021 SUSE LLC
+# Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a list of new security announcement pattern entry for
 #               the change log
-# Modified:     2021 Jun 02
+# Modified:     2022 Nov 07
 #
 ##############################################################################
 #
@@ -47,8 +47,8 @@ for i in $LOCAL $COMMITTED
 do
 	(( SA_COUNT++ ))
 	PATFILE=$(basename $i)
-	SAPART1=$(awk -F_ '{print $(NF-2)}' <<< $PATFILE)
-	SAPART2=$(awk -F_ '{print $(NF-1)}' <<< $PATFILE)
+	SAPART1=$(awk -F_ '{print $(NF-3)}' <<< $PATFILE)
+	SAPART2=$(awk -F_ '{print $(NF-2)}' <<< $PATFILE)
 	SAIDS="$(printf ${SAPART1}:${SAPART2}) ${SAIDS}"
 done
 echo "- Changes in version ${VER}"

@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.0-beta5'
+SVER = '2.0.1'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2022 Nov 03
+# Modified:     2022 Nov 06
 #
 ##############################################################################
 #
@@ -729,8 +729,11 @@ def load_config_file():
 		msg.min("ERROR: Cannot open", str(conf_file) + ": " + str(error))
 		sys.exit(3)
 
+	skipped_line = re.compile("^#|^$", re.IGNORECASE)
 	for line in f.readlines():
-		line = line.strip("\n")
+		line = line.strip(" \n")
+		if skipped_line.search(line):
+			continue
 		key, value = line.split('=')
 		value = value.strip('"')
 		config_file_dict[key] = value.strip('"')
