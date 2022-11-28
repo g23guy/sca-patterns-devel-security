@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Nov 28 21:10:18 UTC 2022 - jason.record@suse.com
+
+- Changed sagen output to lowercase
+
+-------------------------------------------------------------------
 Mon Nov  7 13:01:32 UTC 2022 - jason.record@suse.com
 
 - Fixed fields for sagvc

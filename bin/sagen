@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.1'
+SVER = '2.0.2'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2022 Nov 06
+# Modified:     2022 Nov 28
 #
 ##############################################################################
 #
@@ -327,38 +327,38 @@ class SecurityAnnouncement():
 		CONTENT += "import os\n"
 		CONTENT += "import Core\n"
 		CONTENT += "import SUSE\n\n"
-		CONTENT += "META_CLASS = \"Security\"\n"
-		CONTENT += "META_CATEGORY = \"SLE\"\n"
-		CONTENT += "META_COMPONENT = \"" + str(self.main_package) + "\"\n"
+		CONTENT += "meta_class = \"Security\"\n"
+		CONTENT += "meta_category = \"SLE\"\n"
+		CONTENT += "meta_component = \"" + str(self.main_package) + "\"\n"
 		CONTENT += "pattern_filename = os.path.basename(__file__)\n"
-		CONTENT += "PRIMARY_LINK = \"META_LINK_Security\"\n"
-		CONTENT += "OVERALL = Core.TEMP\n"
-		CONTENT += "OVERALL_INFO = \"NOT SET\"\n"
-		CONTENT += "OTHER_LINKS = \"META_LINK_Security=" + str(self.sauri) + "\"\n"
-		CONTENT += "Core.init(META_CLASS, META_CATEGORY, META_COMPONENT, pattern_filename, PRIMARY_LINK, OVERALL, OVERALL_INFO, OTHER_LINKS)\n\n"
+		CONTENT += "primary_link = \"META_LINK_Security\"\n"
+		CONTENT += "overall = Core.TEMP\n"
+		CONTENT += "overall_info = \"NOT SET\"\n"
+		CONTENT += "other_links = \"META_LINK_Security=" + str(self.sauri) + "\"\n"
+		CONTENT += "Core.init(meta_class, meta_category, meta_component, pattern_filename, primary_link, overall, overall_info, other_links)\n\n"
 		if( self.package_lists[distro_index]['ltss'] ):
-			CONTENT += "LTSS = True\n"
+			CONTENT += "ltss = True\n"
 		else:
-			CONTENT += "LTSS = False\n"
-		CONTENT += "NAME = '" + self.main_package + "'\n"
-		CONTENT += "MAIN = ''\n"
-		CONTENT += "SEVERITY = '" + self.rating + "'\n"
-		CONTENT += "TAG = '" + self.announcement_id + "'\n"
-		CONTENT += "PACKAGES = {}\n"
-		CONTENT += "SERVER = SUSE.getHostInfo()\n\n"
-		CONTENT += "if ( SERVER['DistroVersion'] == " + str(self.package_lists[distro_index]['major']) + "):\n"
-		CONTENT += "\tif ( SERVER['DistroPatchLevel'] == " +  str(self.package_lists[distro_index]['minor']) + " ):\n"
-		CONTENT += "\t\tPACKAGES = {\n"
+			CONTENT += "ltss = False\n"
+		CONTENT += "name = '" + self.main_package + "'\n"
+		CONTENT += "main = ''\n"
+		CONTENT += "severity = '" + self.rating + "'\n"
+		CONTENT += "tag = '" + self.announcement_id + "'\n"
+		CONTENT += "packages = {}\n"
+		CONTENT += "server = SUSE.getHostInfo()\n\n"
+		CONTENT += "if ( server['DistroVersion'] == " + str(self.package_lists[distro_index]['major']) + "):\n"
+		CONTENT += "\tif ( server['DistroPatchLevel'] == " +  str(self.package_lists[distro_index]['minor']) + " ):\n"
+		CONTENT += "\t\tpackages = {\n"
 
 		for key in sorted(self.package_lists[distro_index]['packages'].keys()):
 			CONTENT += "\t\t\t'" + str(key) + "': '" + str(self.package_lists[distro_index]['packages'][key]) + "',\n"
 
 		CONTENT += "\t\t}\n"
-		CONTENT += "\t\tSUSE.securityAnnouncementPackageCheck(NAME, MAIN, LTSS, SEVERITY, TAG, PACKAGES)\n"
+		CONTENT += "\t\tSUSE.securityAnnouncementPackageCheck(name, main, ltss, severity, tag, packages)\n"
 		CONTENT += "\telse:\n"
-		CONTENT += "\t\tCore.updateStatus(Core.ERROR, \"ERROR: \" + NAME + \" Security Announcement: Outside the service pack scope\")\n"
+		CONTENT += "\t\tCore.updateStatus(Core.ERROR, \"ERROR: \" + name + \" Security Announcement: Outside the service pack scope\")\n"
 		CONTENT += "else:\n"
-		CONTENT += "\tCore.updateStatus(Core.ERROR, \"ERROR: \" + NAME + \" Security Announcement: Outside the distribution scope\")\n"
+		CONTENT += "\tCore.updateStatus(Core.ERROR, \"ERROR: \" + name + \" Security Announcement: Outside the distribution scope\")\n\n"
 		CONTENT += "Core.printPatternResults()\n\n"
 
 
