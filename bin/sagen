@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-SVER = '2.0.2_dev3'
+SVER = '2.0.2_dev4'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022-2023 SUSE LLC
@@ -337,6 +337,7 @@ class SecurityAnnouncement():
 
 	def __create_pattern(self, distro_index, pattern_tag):
 		TODAY = datetime.date.today()
+		base_indent = '\t'
 		if( len(pattern_tag) > 0 ):
 			tag = "_" + str(pattern_tag) + "_"
 		else:
@@ -384,30 +385,35 @@ class SecurityAnnouncement():
 		CONTENT += "overall_info = \"NOT SET\"\n"
 		CONTENT += "other_links = \"META_LINK_Security=" + str(self.sauri) + "\"\n"
 		CONTENT += "Core.init(meta_class, meta_category, meta_component, pattern_filename, primary_link, overall, overall_info, other_links)\n\n"
+
+		CONTENT += "def main():\n"
 		if( self.package_lists[distro_index]['ltss'] ):
-			CONTENT += "ltss = True\n"
+			CONTENT += base_indent + "ltss = True\n"
 		else:
-			CONTENT += "ltss = False\n"
-		CONTENT += "name = '" + self.main_package + "'\n"
-		CONTENT += "main = ''\n"
-		CONTENT += "severity = '" + self.rating + "'\n"
-		CONTENT += "tag = '" + self.announcement_id + "'\n"
-		CONTENT += "packages = {}\n"
-		CONTENT += "server = SUSE.getHostInfo()\n\n"
-		CONTENT += "if ( server['DistroVersion'] == " + str(self.package_lists[distro_index]['major']) + "):\n"
-		CONTENT += "\tif ( server['DistroPatchLevel'] == " +  str(self.package_lists[distro_index]['minor']) + " ):\n"
-		CONTENT += "\t\tpackages = {\n"
+			CONTENT += base_indent + "ltss = False\n"
+		CONTENT += base_indent + "name = '" + self.main_package + "'\n"
+		CONTENT += base_indent + "main = ''\n"
+		CONTENT += base_indent + "severity = '" + self.rating + "'\n"
+		CONTENT += base_indent + "tag = '" + self.announcement_id + "'\n"
+		CONTENT += base_indent + "packages = {}\n"
+		CONTENT += base_indent + "server = SUSE.getHostInfo()\n\n"
+		CONTENT += base_indent + "if ( server['DistroVersion'] == " + str(self.package_lists[distro_index]['major']) + "):\n"
+		CONTENT += base_indent + "\tif ( server['DistroPatchLevel'] == " +  str(self.package_lists[distro_index]['minor']) + " ):\n"
+		CONTENT += base_indent + "\t\tpackages = {\n"
 
 		for key in sorted(self.package_lists[distro_index]['packages'].keys()):
-			CONTENT += "\t\t\t'" + str(key) + "': '" + str(self.package_lists[distro_index]['packages'][key]) + "',\n"
+			CONTENT += base_indent + "\t\t\t'" + str(key) + "': '" + str(self.package_lists[distro_index]['packages'][key]) + "',\n"
 
-		CONTENT += "\t\t}\n"
-		CONTENT += "\t\tSUSE.securityAnnouncementPackageCheck(name, main, ltss, severity, tag, packages)\n"
-		CONTENT += "\telse:\n"
-		CONTENT += "\t\tCore.updateStatus(Core.ERROR, \"ERROR: \" + name + \" Security Announcement: Outside the service pack scope\")\n"
-		CONTENT += "else:\n"
-		CONTENT += "\tCore.updateStatus(Core.ERROR, \"ERROR: \" + name + \" Security Announcement: Outside the distribution scope\")\n\n"
-		CONTENT += "Core.printPatternResults()\n\n"
+		CONTENT += base_indent + "\t\t}\n"
+		CONTENT += base_indent + "\t\tSUSE.securityAnnouncementPackageCheck(name, main, ltss, severity, tag, packages)\n"
+		CONTENT += base_indent + "\telse:\n"
+		CONTENT += base_indent + "\t\tCore.updateStatus(Core.ERROR, \"ERROR: \" + name + \" Security Announcement: Outside the service pack scope\")\n"
+		CONTENT += base_indent + "else:\n"
+		CONTENT += base_indent + "\tCore.updateStatus(Core.ERROR, \"ERROR: \" + name + \" Security Announcement: Outside the distribution scope\")\n\n"
+		CONTENT += base_indent + "Core.printPatternResults()\n\n"
+
+		CONTENT += "if __name__ == \"__main__\":\n"
+		CONTENT += "\tmain()\n\n"
 
 
 		# Write the content to a pattern on disk
