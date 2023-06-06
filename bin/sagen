@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-SVER = '2.0.2_dev2'
+SVER = '2.0.2_dev3'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022-2023 SUSE LLC
@@ -43,6 +43,7 @@ dirbase = ''
 dirlog = ''
 dirpat = ''
 manifest_file = '' # Records the security URL and target URLs processed successfully
+single_file = ''
 urlbase = 'https://lists.suse.com/pipermail/sle-security-updates/'
 urllist = ''
 target_url = ''
@@ -66,12 +67,13 @@ def title():
 
 def usage():
 	"Displays usage information"
-	print("Usage: sagen.py [options]")
+	print("Usage: sagen.py [options] [Month][Year]")
 	print()
 	print("Options:")
 	print("  -h           Display this help")
+	print("  -f <file>    Process a single securty announcement HTML file")
 	print("  -q           Do not display output, run quietly")
-	print("  -l <level>   Set log level")
+	print("  -l <level>   Set log level, default: Minimal")
 	print("     0 Quiet, 1 Minimal, 2 Normal, 3 Verbose, 4 Debug")
 	print()
 
@@ -800,7 +802,7 @@ def load_config_file():
 
 def main(argv):
 	"main entry point"
-	global today, conf_file, log_level, all_counters, target_url, dirbase, dirlog, dirpat
+	global today, conf_file, log_level, all_counters, target_url, dirbase, dirlog, dirpat, single_file
 	global urlbase, urllist, manifest_file, said_file_pairs, SVER
 
 	if( os.path.exists(conf_file) ):
@@ -817,9 +819,12 @@ def main(argv):
 	except getopt.GetoptError as exc:
 		title()
 		print("Error:", exc, file=sys.stderr)
+		print("\n")
+		usage()
 		sys.exit(2)
 	for opt in optlist:
 		if opt[0] in {"-h"}:
+			title()
 			usage()
 			sys.exit(0)
 		elif opt[0] in {"-q"}:
@@ -842,14 +847,6 @@ def main(argv):
 					print("Invalid log level, using default")
 		elif opt[0] in {"-f"}:
 			single_file = opt[1]
-			if not os.path.exists(single_file):
-				title()
-				usage()
-				print("ERROR: File not found - " + single_file + "\n")
-				sys.exit(2)
-			else:
-				print("WARNING: File found, but not implemented - " + single_file + "\n")
-				sys.exit(1)
 		elif opt[0] in {"-r"}:
 			print("WARNING: Range option is not yet implemented\n")
 
@@ -868,24 +865,30 @@ def main(argv):
 
 	urllist = convert_date(given_date)
 	target_url = urlbase + urllist + "/"
+	
+	if( len(single_file) > 0 ):
+		msg.min("Processing single file", single_file)
+		sa_file = single_file
+		security = SecurityAnnouncement(msg, dirbase, target_url, sa_file)
+		create_sles_patterns(security)
+	else:
+		#print(msg)
+		manifest_file = dirlog + "manifest-sagen_" + urllist + ".cfg"
+		if not ( load_manifest() ):
+			initialize_manifest()
+	#	else:
+	#		print("List Configuration Data")
+	#		for section in manifest.sections():
+	#			print("[%s]" % section)
+	#			for options in manifest.options(section):
+	#				print("%s = %s" % (options, manifest.get(section, options)))
+	#			print()
 
-	#print(msg)
-	manifest_file = dirlog + "manifest-sagen_" + urllist + ".cfg"
-	if not ( load_manifest() ):
-		initialize_manifest()
-#	else:
-#		print("List Configuration Data")
-#		for section in manifest.sections():
-#			print("[%s]" % section)
-#			for options in manifest.options(section):
-#				print("%s = %s" % (options, manifest.get(section, options)))
-#			print()
-
-	prep_archive_threads()
-	process_archive_threads()
-	if( log_level > LOG_QUIET ):
-		show_summary()
-	clean_up()
+		prep_archive_threads()
+		process_archive_threads()
+		if( log_level > LOG_QUIET ):
+			show_summary()
+		clean_up()
 
 # Entry point
 if __name__ == "__main__":
