@@ -1,4 +1,4 @@
-OBSPACKAGE=sca-patterns-autogen
+OBSPACKAGE=sca-patterns-devel-security
 SVNDIRS=bin conf
 VERSION=$(shell awk '/Version:/ { print $$2 }' spec/${OBSPACKAGE}.spec)
 RELEASE=$(shell awk '/Release:/ { print $$2 }' spec/${OBSPACKAGE}.spec)

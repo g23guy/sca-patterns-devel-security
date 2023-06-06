@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.2'
+SVER = '2.0.2_dev2'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
-# Copyright (C) 2022 SUSE LLC
+# Copyright (C) 2022-2023 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2022 Nov 28
+# Modified:     2023 Jun 05
 #
 ##############################################################################
 #
@@ -162,6 +162,7 @@ class SecurityAnnouncement():
 		self.announcement_id = ''
 		self.rating = ''
 		self.package_lists = []
+		self.this_package_list = {}
 		self.patterns_created = {}
 		self.stat = {'patterns_evaluated': 0, 'patterns_generated': 0, 'patterns_duplicated': 0, 'a_errors': 0, 'p_errors': 0}
 		self.__load_file()
@@ -200,10 +201,20 @@ class SecurityAnnouncement():
 
 	def __get_metadata(self):
 		"Pulls the package name, announcement ID and rating"
-		suse_default = re.compile("SUSE Security Update:", re.IGNORECASE)
+		suse_update_v1 = re.compile("SUSE Security Update:", re.IGNORECASE)
+		suse_update_v2 = re.compile("# Security update for ", re.IGNORECASE)
 		for line in self.loaded_file:
 			text = line.strip().replace('<br>', '') # clean up line
-			if suse_default.search(text):
+			if suse_update_v1.search(text):
+				if "java" in text.lower():
+					self.main_package = "Java"
+				elif "apache" in text.lower():
+					self.main_package = "Apache"
+				elif "kerberos" in text.lower():
+					self.main_package = "Kerberos"
+				else:
+					self.main_package = re.sub('[,]', '', text.split()[self.IDX_LAST])
+			elif suse_update_v2.search(text):
 				if "java" in text.lower():
 					self.main_package = "Java"
 				elif "apache" in text.lower():
@@ -219,72 +230,107 @@ class SecurityAnnouncement():
 		msg.debug('self.main_package', self.main_package)
 		msg.debug('self.announcement_id', self.announcement_id)
 		msg.debug('self.rating', self.rating)
+		
+	def __deconstruct_header(self, info):
+#		print("==> Header:            " + info)
+		"Extracts the label, major and minor versions, and architectures from the header info provided"
+		parts = info.split('(')
+		self.this_package_list['label'] = parts[self.IDX_FIRST].replace('-', ' ')[2:].strip() #Everything to the left of the first ( excluding the leading "- ".
+		self.this_package_list['archs'] = parts[self.IDX_LAST].rstrip("):").split()
+		parts = self.this_package_list['label'].split()
+		for part in parts:
+			if part[:1].isdigit():
+				if( "." in part ):
+					self.this_package_list['major'], self.this_package_list['minor'] = part.split('.')
+				else:
+					self.this_package_list['major'] = part
+			elif( part.startswith('SP') ):
+				self.this_package_list['minor'] = part[2:] # remove the SP in part
+			elif( 'ltss' in part.lower() ):
+				self.this_package_list['ltss'] = True
+		if( int(self.this_package_list['minor']) < 0 ):
+			self.this_package_list['minor'] = 0
+		if( "SP" not in parts[self.IDX_LAST] and 'ltss' not in parts[self.IDX_LAST].lower() and not parts[self.IDX_LAST][:1].isdigit() ):
+			self.this_package_list['tag'] = parts[self.IDX_LAST]
 
+	def __deconstruct_package(self, info):
+		"Extracts the package name and version information"
+		info = info.lstrip('* ')
+#		print("==> Processing package: " + info)
+		pkg_parts = info.split('-')
+		pkg_version = pkg_parts[-2] + '-' + pkg_parts[-1]
+		del pkg_parts[-1]
+		del pkg_parts[-1]
+		pkg_name = '-'.join(pkg_parts)
+		# Might need to check for pre-existing package before assigning
+		self.this_package_list['packages'][pkg_name] = pkg_version
 
 	def __get_package_lists(self):
 		"Creates a list of dictionaries for each distribution found"
-		in_list = False
+		in_package_list = False
+		in_header = False
 		in_packages = False
-		header = True
+		header_line = ''
+		self.this_package_list = {}
 		for line in self.loaded_file:
 			text = line.strip().replace('<br>', '') # clean up line
-			if( in_list ):
-				if text.startswith('References:'):
-					in_list = False
-					break
-				else:
-					if( in_packages ):
-						if( header ):
-							header = False
-							continue
-						elif( len(text) == 0 ):
-							in_packages = False
-							self.package_lists.append(this_list)
+			if( in_package_list ):
+				if( in_packages ):
+					if text.endswith('References:'):
+						if self.this_package_list:
+							self.package_lists.append(self.this_package_list)
+						in_package_list = False
+						in_header = False
+						in_packages = False
+						header_line = ''
+						self.this_package_list = {}
+						break
+					elif( text.startswith('-') or text.startswith('*') and '(' in text ):
+						# I encountered the next header, so save the previous this_package_list to package_lists
+						if self.this_package_list:
+							self.package_lists.append(self.this_package_list)
+						self.this_package_list = {'label': '', 'major': -1, 'minor': -1, 'ltss': False, 'tag': '', 'archs': [], 'packages': {}}
+						header_line = header_line + " " + text
+						if header_line.endswith(')') or header_line.endswith('):'):
+							self.__deconstruct_header(header_line)
+							in_header = False
+							in_packages = True
+							header_line = ''
 						else:
-							pkg_parts = text.split('-')
-							pkg_version = pkg_parts[-2] + '-' + pkg_parts[-1]
-							del pkg_parts[-1]
-							del pkg_parts[-1]
-							pkg_name = '-'.join(pkg_parts)
-							# Might need to check for pre-existing package before assigning
-							this_list['packages'][pkg_name] = pkg_version
-					elif text.startswith('-'):
-					# Example:  - SUSE Linux Enterprise Module for Basesystem 15-SP3-BCL (aarch64 ppc64le s390x x86_64):
-					#						dwarves-1.22-150300.7.3.1
-					#						elfutils-0.177-150300.11.3.1
-					#
-					# this_list assignment example
-					# label: 		SUSE Linux Enterprise Module for Basesystem 15 SP3 BCL
-					# major: 		15
-					# minor: 		3
-					# ltss:			False
-					# tag:			BCL
-					# archs: 		['aarch64', 'ppc64le', 's390x', 'x86_64']
-					# packages:		{'dwarves': '1.22-150300.7.3.1', 'elfutils': '0.177-150300.11.3.1'}
-						this_list = {'label': '', 'major': -1, 'minor': -1, 'ltss': False, 'tag': '', 'archs': [], 'packages': {}}
+							in_header = True
+							in_packages = False
+					elif( len(text) > 0 ):
+						self.__deconstruct_package(text)
+				elif( in_header ):
+					header_line = header_line + " " + text
+					if header_line.endswith(')') or header_line.endswith('):'):
+						self.__deconstruct_header(header_line)
+						in_header = False
 						in_packages = True
-						header = True
-						# Might need to check of more than one ( character is in the string, for now I'm assuming only one.
-						parts = text.split('(')
-						this_list['label'] = parts[self.IDX_FIRST].replace('-', ' ')[2:].strip() #Everything to the left of the first ( excluding the leading "- ".
-						this_list['archs'] = parts[self.IDX_LAST].rstrip("):").split()
-						parts = this_list['label'].split()
-						for part in parts:
-							if part[:1].isdigit():
-								if( "." in part ):
-									this_list['major'], this_list['minor'] = part.split('.')
-								else:
-									this_list['major'] = part
-							elif( part.startswith('SP') ):
-								this_list['minor'] = part[2:] # remove the SP in part
-							elif( 'ltss' in part.lower() ):
-								this_list['ltss'] = True
-						if( int(this_list['minor']) < 0 ):
-							this_list['minor'] = 0
-						if( "SP" not in parts[self.IDX_LAST] and 'ltss' not in parts[self.IDX_LAST].lower() and not parts[self.IDX_LAST][:1].isdigit() ):
-							this_list['tag'] = parts[self.IDX_LAST]
-			elif text.startswith('Package List:'):
-				in_list = True
+						header_line = ''
+				elif text.endswith('References:'):
+					in_package_list = False
+					in_header = False
+					in_packages = False
+					header_line = ''
+					break
+				elif( text.startswith('-') or text.startswith('*') and '(' in text ):
+					self.this_package_list = {'label': '', 'major': -1, 'minor': -1, 'ltss': False, 'tag': '', 'archs': [], 'packages': {}}
+					header_line = header_line + " " + text
+					if header_line.endswith(')') or header_line.endswith('):'):
+						self.__deconstruct_header(header_line)
+						in_header = False
+						in_packages = True
+						header_line = ''
+					else:
+						in_header = True
+						in_packages = False
+			elif text.endswith('Package List:'):
+				in_package_list = True
+#		for pkgdict in self.package_lists:
+#			for key,value in pkgdict.items():
+#				print("{0:10} : {1}".format(key, value))
+#			print("\n")
 		msg.debug('self.package_lists', self.package_lists)
 
 	def __create_pattern(self, distro_index, pattern_tag):
@@ -767,7 +813,7 @@ def main(argv):
 
 	user_logging = -1
 	try:
-		(optlist, args) = getopt.gnu_getopt(argv[1:], "hql:r:")
+		(optlist, args) = getopt.gnu_getopt(argv[1:], "hql:r:f:")
 	except getopt.GetoptError as exc:
 		title()
 		print("Error:", exc, file=sys.stderr)
@@ -794,6 +840,16 @@ def main(argv):
 					log_level = LOG_DEBUG
 				else:
 					print("Invalid log level, using default")
+		elif opt[0] in {"-f"}:
+			single_file = opt[1]
+			if not os.path.exists(single_file):
+				title()
+				usage()
+				print("ERROR: File not found - " + single_file + "\n")
+				sys.exit(2)
+			else:
+				print("WARNING: File found, but not implemented - " + single_file + "\n")
+				sys.exit(1)
 		elif opt[0] in {"-r"}:
 			print("WARNING: Range option is not yet implemented\n")
 
