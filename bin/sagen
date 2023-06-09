@@ -203,11 +203,10 @@ class SecurityAnnouncement():
 
 	def __get_metadata(self):
 		"Pulls the package name, announcement ID and rating"
-		suse_update_v1 = re.compile("SUSE Security Update:", re.IGNORECASE)
-		suse_update_v2 = re.compile("# Security update for ", re.IGNORECASE)
+		suse_update = re.compile("SUSE Security Update:|# Security update for ", re.IGNORECASE)
 		for line in self.loaded_file:
 			text = line.strip().replace('<br>', '') # clean up line
-			if suse_update_v1.search(text):
+			if suse_update.search(text):
 				if "java" in text.lower():
 					self.main_package = "Java"
 				elif "apache" in text.lower():
@@ -215,16 +214,8 @@ class SecurityAnnouncement():
 				elif "kerberos" in text.lower():
 					self.main_package = "Kerberos"
 				else:
-					self.main_package = re.sub('[,]', '', text.split()[self.IDX_LAST])
-			elif suse_update_v2.search(text):
-				if "java" in text.lower():
-					self.main_package = "Java"
-				elif "apache" in text.lower():
-					self.main_package = "Apache"
-				elif "kerberos" in text.lower():
-					self.main_package = "Kerberos"
-				else:
-					self.main_package = re.sub('[,]', '', text.split()[self.IDX_LAST])
+					update_str = text.split('(')[self.IDX_FIRST]
+					self.main_package = re.sub('[,]', '', update_str.split()[self.IDX_LAST])
 			elif text.startswith("Announcement ID:"):
 				self.announcement_id = text.split()[self.IDX_LAST]
 			elif text.startswith("Rating:"):
