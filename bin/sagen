@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.2_dev4'
+SVER = '2.0.2_dev6'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022-2023 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2023 Jun 05
+# Modified:     2023 Jun 09
 #
 ##############################################################################
 #
@@ -44,6 +44,7 @@ dirlog = ''
 dirpat = ''
 manifest_file = '' # Records the security URL and target URLs processed successfully
 single_file = ''
+range_string = ''
 urlbase = 'https://lists.suse.com/pipermail/sle-security-updates/'
 urllist = ''
 target_url = ''
@@ -71,9 +72,12 @@ def usage():
 	print()
 	print("Options:")
 	print("  -h           Display this help")
-	print("  -f <file>    Process a single securty announcement HTML file")
+	print("  -f <file>    Process a single securty announcement HTML file for debugging.")
+	print("               NOTE: Url data may not be accurate.")
 	print("  -q           Do not display output, run quietly")
 	print("  -l <level>   Set log level, default: Minimal")
+	print("  -r <range_string>")
+	print("               Date range for security announcements. Format: first:last,next")
 	print("     0 Quiet, 1 Minimal, 2 Normal, 3 Verbose, 4 Debug")
 	print()
 
@@ -251,6 +255,7 @@ class SecurityAnnouncement():
 		info = info.lstrip('* ')
 #		print("==> Processing package: " + info)
 		pkg_parts = info.split('-')
+#		print("==> Packages parts: " + str(pkg_parts))
 		pkg_version = pkg_parts[-2] + '-' + pkg_parts[-1]
 		del pkg_parts[-1]
 		del pkg_parts[-1]
@@ -659,7 +664,6 @@ def prep_archive_threads():
 #	print("manifest_pattern_count_total=" + str(manifest_pattern_count_total))
 #	print("all_counters['pattern_count_total']=" + str(all_counters['pattern_count_total']))
 	if( manifest_pattern_count_total == 0 ):
-		print("Starting new")
 		initialize_manifest()
 		evaluate_manifest()
 		manifest['metadata']['pattern_count_total'] = str(all_counters['pattern_count_total'])
@@ -753,7 +757,6 @@ def show_summary():
 	print(DISPLAY.format("Announcements URL", target_url))
 	print(DISPLAY.format("Log Directory", dirlog))
 	print(DISPLAY.format("Pattern Directory", dirpat))
-	print('\n')
 	#print("List Configuration Data")
 	#for section in manifest.sections():
 	#	print("[%s]" % section)
@@ -793,6 +796,67 @@ def load_config_file():
 			print("ERROR: Directory not found - " + chkdir)
 			sys.exit(5)
 
+def extract_range_list(str_to_extract):
+	MONTHS_INT = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 
+	'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+	FIRST_MONTH = 1
+	LAST_MONTH = 13
+	this_list = []
+	if( len(str_to_extract) > 0 ):
+		parts = str_to_extract.split(',')
+	else:
+		return this_list
+
+	for part in parts:
+		if ':' in part:
+			msg.debug("Range spanning element", str(part))
+			range_part = part.split(':')
+			if( len(range_part) > 2 ):
+				print("ERROR: Invalid range - " + part + "\n")
+				usage()
+				sys.exit(6)
+			else:
+				start_year,start_month = convert_date(range_part[0]).split('-')
+				end_year,end_month = convert_date(range_part[1]).split('-')
+				if( start_year == end_year ):
+					use_start_month = MONTHS_INT[start_month]
+					use_end_month = MONTHS_INT[end_month] + 1
+					for current_month in range(use_start_month, use_end_month):
+						this_date = convert_date(str(end_year) + "-" + str(current_month))
+						msg.debug("  + Adding to list", str(this_date))
+						this_list.append(this_date)
+				else:
+					if( int(start_year) < int(end_year) ):
+						use_start_year = int(start_year)
+						use_end_year = int(end_year) + 1
+					else:
+						# Put the year and months in chronological order
+						use_start_year = int(end_year)
+						use_end_year = int(start_year) + 1
+						tmp_start_month = start_month
+						start_month = end_month
+						end_month = tmp_start_month
+					for current_year in range(use_start_year, use_end_year):
+						if( current_year == use_start_year ):
+							use_start_month = MONTHS_INT[start_month]
+							use_end_month = LAST_MONTH
+						elif( current_year == use_end_year - 1 ):
+							use_start_month = FIRST_MONTH
+							use_end_month = MONTHS_INT[end_month] + 1
+						else:
+							use_start_month = FIRST_MONTH
+							use_end_month = LAST_MONTH
+						for current_month in range(use_start_month, use_end_month):
+							this_date = convert_date(str(current_year) + "-" + str(current_month))
+							msg.debug("  + Adding to list", str(this_date))
+							this_list.append(this_date)
+		else:
+			msg.debug("Range single element", str(part))
+			this_list.append(convert_date(part))
+
+	msg.debug("Range list", this_list)
+	return this_list
+
 ##############################################################################
 # Main
 ##############################################################################
@@ -800,7 +864,9 @@ def load_config_file():
 def main(argv):
 	"main entry point"
 	global today, conf_file, log_level, all_counters, target_url, dirbase, dirlog, dirpat, single_file
-	global urlbase, urllist, manifest_file, said_file_pairs, SVER
+	global urlbase, urllist, manifest_file, said_file_pairs, SVER, range_string
+	range_list = []
+	separator_line = False
 
 	if( os.path.exists(conf_file) ):
 		load_config_file()
@@ -845,7 +911,7 @@ def main(argv):
 		elif opt[0] in {"-f"}:
 			single_file = opt[1]
 		elif opt[0] in {"-r"}:
-			print("WARNING: Range option is not yet implemented\n")
+			range_string = opt[1]
 
 	if len(args) > 0:
 		given_date = '-'.join(args)
@@ -859,33 +925,49 @@ def main(argv):
 		title()
 
 	msg.set_level(log_level)
+	range_list = extract_range_list(range_string)
+	if( len(range_list) > 0 ):
+		if( len(range_list) > 1 ):
+				separator_line = True
+		if( len(given_date) > 0 ):
+			range_list.append(convert_date(given_date))
+	else:
+		range_list.append(convert_date(given_date))
 
-	urllist = convert_date(given_date)
-	target_url = urlbase + urllist + "/"
-	
+	if separator_line:
+		msg.min("Processing Announcements", " ".join(range_list))
 	if( len(single_file) > 0 ):
 		msg.min("Processing single file", single_file)
+		urllist = convert_date(given_date)
+		target_url = urlbase + urllist + "/"
+		target_url = ''
 		sa_file = single_file
 		security = SecurityAnnouncement(msg, dirbase, target_url, sa_file)
 		create_sles_patterns(security)
 	else:
-		#print(msg)
-		manifest_file = dirlog + "manifest-sagen_" + urllist + ".cfg"
-		if not ( load_manifest() ):
-			initialize_manifest()
-	#	else:
-	#		print("List Configuration Data")
-	#		for section in manifest.sections():
-	#			print("[%s]" % section)
-	#			for options in manifest.options(section):
-	#				print("%s = %s" % (options, manifest.get(section, options)))
-	#			print()
+		for urllist in range_list:
+			all_counters = {'pattern_count_current': 0, 'pattern_count_total': 0, 'a_errors': 0, 'patterns_evaluated': 0, 'patterns_generated': 0, 'patterns_duplicated': 0, 'p_errors': 0}
+			said_file_pairs = {}
+			target_url = urlbase + urllist + "/"
+			#print(msg)
+			manifest_file = dirlog + "manifest-sagen_" + urllist + ".cfg"
+			if not ( load_manifest() ):
+				initialize_manifest()
+		#	else:
+		#		print("List Configuration Data")
+		#		for section in manifest.sections():
+		#			print("[%s]" % section)
+		#			for options in manifest.options(section):
+		#				print("%s = %s" % (options, manifest.get(section, options)))
+		#			print()
 
-		prep_archive_threads()
-		process_archive_threads()
-		if( log_level > LOG_QUIET ):
-			show_summary()
-		clean_up()
+			prep_archive_threads()
+			process_archive_threads()
+			if( log_level > LOG_QUIET ):
+				show_summary()
+				if separator_line:
+					print("-----------------------------------------------------------------------------\n")
+			clean_up()
 
 # Entry point
 if __name__ == "__main__":
