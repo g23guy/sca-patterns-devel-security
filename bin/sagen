@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.2_dev6'
+SVER = '2.0.2_dev8'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022-2023 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2023 Jun 09
+# Modified:     2023 Jun 12
 #
 ##############################################################################
 #
@@ -269,6 +269,8 @@ class SecurityAnnouncement():
 		in_header = False
 		in_packages = False
 		header_line = ''
+		header_start = re.compile("SUSE |openSUSE |Module ", re.IGNORECASE)
+		header_finish = re.compile("\)$|\):$")
 		self.this_package_list = {}
 		for line in self.loaded_file:
 			text = line.strip().replace('<br>', '') # clean up line
@@ -283,17 +285,20 @@ class SecurityAnnouncement():
 						header_line = ''
 						self.this_package_list = {}
 						break
-					elif( text.startswith('-') or text.startswith('*') and '(' in text ):
+					elif header_start.search(text):
 						# I encountered the next header, so save the previous this_package_list to package_lists
 						if self.this_package_list:
 							self.package_lists.append(self.this_package_list)
 						self.this_package_list = {'label': '', 'major': -1, 'minor': -1, 'ltss': False, 'tag': '', 'archs': [], 'packages': {}}
 						header_line = header_line + " " + text
-						if header_line.endswith(')') or header_line.endswith('):'):
+						if header_finish.search(header_line):
 							self.__deconstruct_header(header_line)
 							in_header = False
 							in_packages = True
 							header_line = ''
+						elif( "(" in header_line ):
+							in_header = False
+							in_packages = False
 						else:
 							in_header = True
 							in_packages = False
@@ -301,25 +306,31 @@ class SecurityAnnouncement():
 						self.__deconstruct_package(text)
 				elif( in_header ):
 					header_line = header_line + " " + text
-					if header_line.endswith(')') or header_line.endswith('):'):
+					if header_finish.search(header_line):
 						self.__deconstruct_header(header_line)
 						in_header = False
 						in_packages = True
 						header_line = ''
+					elif( "(" in header_line ):
+						in_header = False
+						in_packages = False
 				elif text.endswith('References:'):
 					in_package_list = False
 					in_header = False
 					in_packages = False
 					header_line = ''
 					break
-				elif( text.startswith('-') or text.startswith('*') and '(' in text ):
+				elif header_start.search(text):
 					self.this_package_list = {'label': '', 'major': -1, 'minor': -1, 'ltss': False, 'tag': '', 'archs': [], 'packages': {}}
 					header_line = header_line + " " + text
-					if header_line.endswith(')') or header_line.endswith('):'):
+					if header_finish.search(header_line):
 						self.__deconstruct_header(header_line)
 						in_header = False
 						in_packages = True
 						header_line = ''
+					elif( "(" in header_line ):
+						in_header = False
+						in_packages = False
 					else:
 						in_header = True
 						in_packages = False
