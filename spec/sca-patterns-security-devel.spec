@@ -1,4 +1,4 @@
-# spec file for package sca-patterns-devel-security
+# spec file for package sca-patterns-security-devel
 #
 # Copyright (c) 2022-2023 SUSE LINUX GmbH, Nuernberg, Germany.
 #
@@ -16,7 +16,7 @@
 %define autogenbasedir %{_localstatedir}/opt/%{autogenbase}
 %define autogendir %{autogenbasedir}/autogen
 
-Name:         sca-patterns-devel-security
+Name:         sca-patterns-security-devel
 Version:      1.2.5
 Release:      0
 Summary:      SCA Security Pattern Generator
