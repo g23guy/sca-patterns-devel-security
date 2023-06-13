@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-SVER = '2.0.2_dev8'
+SVER = '2.0.6'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022-2023 SUSE LLC
@@ -229,7 +229,7 @@ class SecurityAnnouncement():
 		msg.debug('self.rating', self.rating)
 		
 	def __deconstruct_header(self, info):
-#		print("==> Header:            " + info)
+		msg.debug("Header:", str(info))
 		"Extracts the label, major and minor versions, and architectures from the header info provided"
 		parts = info.split('(')
 		self.this_package_list['label'] = parts[self.IDX_FIRST].replace('-', ' ')[2:].strip() #Everything to the left of the first ( excluding the leading "- ".
@@ -252,16 +252,21 @@ class SecurityAnnouncement():
 
 	def __deconstruct_package(self, info):
 		"Extracts the package name and version information"
+		LIMIT_HIGH = 10
+		LIMIT_LOW = 3
 		info = info.lstrip('* ')
-#		print("==> Processing package: " + info)
 		pkg_parts = info.split('-')
-#		print("==> Packages parts: " + str(pkg_parts))
+		pkg_parts_len = len(pkg_parts)
+		msg.debug(" Package:", str(info) + " => (" + str(pkg_parts_len) + ") " + str(pkg_parts))
 		pkg_version = pkg_parts[-2] + '-' + pkg_parts[-1]
 		del pkg_parts[-1]
 		del pkg_parts[-1]
 		pkg_name = '-'.join(pkg_parts)
-		# Might need to check for pre-existing package before assigning
-		self.this_package_list['packages'][pkg_name] = pkg_version
+		if( LIMIT_LOW <= pkg_parts_len and pkg_parts_len < LIMIT_HIGH ):
+			self.this_package_list['packages'][pkg_name] = pkg_version
+			return True
+		else:
+			return False
 
 	def __get_package_lists(self):
 		"Creates a list of dictionaries for each distribution found"
@@ -303,7 +308,15 @@ class SecurityAnnouncement():
 							in_header = True
 							in_packages = False
 					elif( len(text) > 0 ):
-						self.__deconstruct_package(text)
+						if not self.__deconstruct_package(text):
+							if self.this_package_list:
+								self.package_lists.append(self.this_package_list)
+							in_package_list = False
+							in_header = False
+							in_packages = False
+							header_line = ''
+							self.this_package_list = {}
+							break
 				elif( in_header ):
 					header_line = header_line + " " + text
 					if header_finish.search(header_line):

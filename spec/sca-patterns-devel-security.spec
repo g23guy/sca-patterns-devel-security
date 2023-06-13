@@ -17,7 +17,7 @@
 %define autogendir %{autogenbasedir}/autogen
 
 Name:         sca-patterns-devel-security
-Version:      1.2.4
+Version:      1.2.5
 Release:      0
 Summary:      SCA Security Pattern Generator
 License:      GPL-2.0-only

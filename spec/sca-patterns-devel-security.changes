@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Tue Jun 13 03:08:05 UTC 2023 - jason.record@suse.com
+
+- Changes to 1.2.5
+  + Fixed missing reference to stop package processing issue#7
+  + Fixed header missing parenthesis issue#6
+  + Supports a range option to select date ranges issue#5
+  + Correct parsing errors issue#3
+  + Added __main__ entry point to all generated patterns issue#2
+  + Processes a single file with the file option issue#4
+  + Fixed new annoucement format errors issue#1
+
+-------------------------------------------------------------------
 Mon Nov 28 21:10:18 UTC 2022 - jason.record@suse.com
 
 - Changed sagen output to lowercase
