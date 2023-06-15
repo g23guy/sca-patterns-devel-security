@@ -1,7 +1,8 @@
 -------------------------------------------------------------------
-Tue Jun 13 03:08:05 UTC 2023 - jason.record@suse.com
+Thu Jun 15 17:25:27 UTC 2023 - jason.record@suse.com
 
 - Changes to 1.2.5
+  + Ported sagvc from bash to python3
   + Fixed missing reference to stop package processing issue#7
   + Fixed header missing parenthesis issue#6
   + Supports a range option to select date ranges issue#5
