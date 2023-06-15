@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-SVER='2.0.0_dev1'
+SVER='2.0.1'
 ##############################################################################
 # sagvc - Security Announcement Patterns Change Log Generator
 # Copyright (C) 2023 SUSE LLC
@@ -232,17 +232,18 @@ def main(argv):
 	repo_name = os.path.basename(cwd)
 	git_dir = cwd + "/.git"
 	spec_file = cwd + '/spec/' + repo_name + ".spec"
-	spec_ver = get_spec_ver(spec_file)
 	date_updated = convert_date(given_date)
 
 	if not os.path.isdir(git_dir):
 		print("Error: Not a GitHub directory")
+		print("Change to an SCA Pattern GitHub repository directory and try again\n")
 		sys.exit(1)
 	elif not os.path.exists(spec_file):
 		print("Error: File not found - " + spec_file)
-		print("Change to GitHub repository directory and try again\n")
+		print("Change to an SCA Pattern GitHub repository directory and try again\n")
 		sys.exit(1)
 
+	spec_ver = get_spec_ver(spec_file)
 	parse_patterns = parse_patterns + get_local_patterns()
 	parse_patterns = parse_patterns + get_committed_patterns()
 	print()
