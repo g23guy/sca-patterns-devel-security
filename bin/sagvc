@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-SVER='2.0.1'
+SVER='2.0.2'
 ##############################################################################
 # sagvc - Security Announcement Patterns Change Log Generator
 # Copyright (C) 2023 SUSE LLC
@@ -64,7 +64,8 @@ def get_local_patterns():
 		line = l.lstrip()
 		if pattern_file.search(line):
 			patterns.append(line.split()[-1])
-
+	if( patterns ):
+		print("  + Found {0} patterns".format(len(patterns)))
 	return patterns
 
 def get_gitrepo_range():
@@ -115,12 +116,15 @@ def get_committed_patterns():
 			line = l.lstrip()
 			if pattern.search(line):
 				patterns.append(line)
+	if( patterns ):
+		print("  + Found {0} patterns".format(len(patterns)))
 	return patterns
 
 def get_spec_ver(filepath):
 	version_str = "Unknown"
 	this_version = ""
 	version = re.compile("^Version:\s.*[0-9]", re.IGNORECASE)
+	spec_file = os.path.basename(filepath)
 
 	fd = open(filepath, "r")
 	lines = fd.readlines()
@@ -233,6 +237,7 @@ def main(argv):
 	git_dir = cwd + "/.git"
 	spec_file = cwd + '/spec/' + repo_name + ".spec"
 	date_updated = convert_date(given_date)
+	print("Processing package: {0}".format(repo_name))
 
 	if not os.path.isdir(git_dir):
 		print("Error: Not a GitHub directory")
@@ -243,13 +248,13 @@ def main(argv):
 		print("Change to an SCA Pattern GitHub repository directory and try again\n")
 		sys.exit(1)
 
-	spec_ver = get_spec_ver(spec_file)
 	parse_patterns = parse_patterns + get_local_patterns()
 	parse_patterns = parse_patterns + get_committed_patterns()
-	print()
 
 	saids = []
 	if( len(parse_patterns) > 0 ):
+		spec_ver = get_spec_ver(spec_file)
+		print()
 		for this_pattern in parse_patterns:
 			parts = this_pattern.split('_')
 			said = ":".join([parts[-4], parts[-3]])
@@ -260,9 +265,9 @@ def main(argv):
 		for x in range(0, len(saids), SAID_WIDTH):
 			row = saids[x:x+SAID_WIDTH]
 			print("    " + " ".join(row))
-		print("\nNew security announcement patterns as of " + date_updated + " (" + str(count) + ")")
+		print("\nNew security announcement patterns as of " + date_updated + " - " + str(count))
 	else:
-		print("No security patterns found for the change log\n")
+		print("Warning: No security patterns found for the change log\n")
 	print()
 
 # Entry point
