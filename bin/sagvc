@@ -1,12 +1,12 @@
-#!/bin/bash
-SVER='1.0.0'
+#!/usr/bin/python3
+SVER='2.0.0_dev1'
 ##############################################################################
 # sagvc - Security Announcement Patterns Change Log Generator
-# Copyright (C) 2022 SUSE LLC
+# Copyright (C) 2023 SUSE LLC
 #
 # Description:  Creates a list of new security announcement pattern entry for
 #               the change log
-# Modified:     2022 Nov 07
+# Modified:     2023 Jun 15
 #
 ##############################################################################
 #
@@ -27,36 +27,244 @@ SVER='1.0.0'
 #
 ##############################################################################
 
-echo "##############################################################"
-echo "# SA Change Log Generator v$SVER"
-echo "##############################################################"
-echo
+import sys
+import os
+import re
+import getopt
+import datetime
+import subprocess as sp
 
-SPEC=$(ls -1 spec/*.spec 2>/dev/null | wc -l)
-if (( $SPEC < 1 )); then
-	echo "ERROR: Missing spec file"
-	exit
-fi
-VER=$(grep -i version\: spec/*.spec | awk '{print $NF}')
-SAIDS=''
-SA_COUNT=0
-SRC_DATE=$(date +"%b %Y")
-COMMITTED=$(for i in $(git log origin/master..master | grep commit | awk '{print $NF}'); do git diff-tree --no-commit-id --name-only -r $i; done | grep 'patterns/')
-LOCAL=$(git status | grep 'patterns/' | sed -e "s/new file:[[:space:]]*//;s/^[[:space:]]//")
-for i in $LOCAL $COMMITTED
-do
-	(( SA_COUNT++ ))
-	PATFILE=$(basename $i)
-	SAPART1=$(awk -F_ '{print $(NF-3)}' <<< $PATFILE)
-	SAPART2=$(awk -F_ '{print $(NF-2)}' <<< $PATFILE)
-	SAIDS="$(printf ${SAPART1}:${SAPART2}) ${SAIDS}"
-done
-echo "- Changes in version ${VER}"
-echo "  - New security announcement patterns (${SA_COUNT})"
-printf "    + ${SRC_DATE} ($SA_COUNT) for "
-echo $SAIDS
-echo
-echo "${SRC_DATE} New Security Announcement Patterns $SA_COUNT"
-echo
-echo
+def title():
+	"Display the program title"
+	print("#############################################################################")
+	print("# Security Advisory Change Log Generator v" + str(SVER))
+	print("#############################################################################\n")
+
+def usage():
+	"Displays usage information"
+	print("Usage: sagvc [options] [Month][Year]")
+	print()
+	print("Options:")
+	print("  -h           Display this help")
+	print()
+
+def get_local_patterns():
+	print("Searching for local uncommitted security patterns")
+	patterns = []
+	prog = "git status"
+	pattern_file = re.compile("patterns/.*_SUSE-SU")
+
+	p = sp.run(prog, shell=True, check=True, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
+	# There are two possible output formats from this command:
+	# 	new file:   patterns/SLE/sle15sp4/xterm_SUSE-SU-2023_0221-1_sles_15.4.py
+	#   patterns/SLE/sle15sp4/xterm_SUSE-SU-2023_0221-1_sles_15.4.py
+	# This currently handles both formats
+
+	for l in p.stdout.splitlines():
+		line = l.lstrip()
+		if pattern_file.search(line):
+			patterns.append(line.split()[-1])
+
+	return patterns
+
+def get_gitrepo_range():
+	prog = "git --no-pager branch -a"
+	head_remote = ''
+	head_local = ''
+	repo_range = ''
+	head_name = re.compile("HEAD.*origin/")
+
+	p = sp.run(prog, shell=True, check=True, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
+
+	for l in p.stdout.splitlines():
+		line = l.lstrip()
+		if head_name.search(line):
+			head_remote = line.split()[-1]
+
+	head_local = head_remote.split("/")[-1]
+	repo_range = head_remote + ".." + head_local
+
+	return repo_range
+	
+def get_gitcommit_list(_repo_range):
+	prog = "git --no-pager log " + _repo_range
+	commits_to_check = []
+
+	p = sp.run(prog, shell=True, check=True, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
+
+	for l in p.stdout.splitlines():
+		line = l.lstrip()
+		if( line.startswith("commit ") ):
+			commits_to_check.append(line.split()[1])
+	
+	return commits_to_check
+
+
+def get_committed_patterns():
+	print("Searching for local committed security patterns not pushed")
+	prog = "git diff-tree --no-commit-id --name-only -r "
+	patterns = []
+	repo_range = get_gitrepo_range()
+	commit_list = get_gitcommit_list(repo_range)
+	pattern = re.compile("patterns/.*_SUSE-SU")
+	
+	for _commit in commit_list:
+		p = sp.run(prog + _commit, shell=True, check=True, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
+
+		for l in p.stdout.splitlines():
+			line = l.lstrip()
+			if pattern.search(line):
+				patterns.append(line)
+	return patterns
+
+def get_spec_ver(filepath):
+	version_str = "Unknown"
+	this_version = ""
+	version = re.compile("^Version:\s.*[0-9]", re.IGNORECASE)
+
+	fd = open(filepath, "r")
+	lines = fd.readlines()
+	for line in lines:
+		if version.search(line):
+			this_version = line.split()[-1]
+			break
+	fd.close()
+	if( this_version ):
+		parts = this_version.split('.')
+		bumped = str(int(parts[-1]) + 1)
+		parts[-1] = str(bumped)
+		bumped_version = '.'.join(parts)
+		version_str = bumped_version
+		print("Bumping package version from {0} to {1}".format(this_version, bumped_version))
+	else:
+		print("Could not find package version in {0}".format(filepath))
+
+	#print("Found version " + version_str + " in " + filepath)
+
+	return version_str
+
+def convert_date(given_str):
+	"Converts given string to valid date for URL retrival"
+	converted_str = 'INVALID'
+	today = datetime.datetime.today()
+	MONTHS = {1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun', 
+	7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec', 
+	'jan': 'Jan', 'feb': 'Feb', 'mar': 'Mar', 'apr': 'Apr', 'may': 'May', 'jun': 'Jun', 
+	'jul': 'Jul', 'aug': 'Aug', 'sep': 'Sep', 'oct': 'Oct', 'nov': 'Nov', 'dec': 'Dec'}
+	this_year = today.strftime("%Y")
+	this_month = int(today.strftime("%m"))
+	use_year = ''
+	use_month = ''
+	if( len(given_str) > 0 ):
+		if( '-' in given_str ):
+			parts = given_str.split('-')
+		elif( '/' in given_str ):
+			parts = given_str.split('/')
+		else:
+			parts = [given_str, '0']
+
+		#print(parts)
+		for part in parts:
+			if( part.isdigit() ):
+				part = int(part)
+				if( part > 0 ):
+					if( part > 12 ): # Assume it's the requested year
+						if( part > 99 ):
+							use_year = str(part)
+						else:
+							use_year = "20" + str(part)
+					else: # Assume it's the requested month
+						if( part in MONTHS.keys() ):
+							use_month = MONTHS[part]
+						else:
+							sys.exit(3)
+			else:
+				part = part[:3].lower()
+				if( part in MONTHS.keys() ):
+					use_month = MONTHS[part]
+				else:
+					sys.exit(3)
+		if( len(use_year) == 0 ):
+			use_year = this_year
+		if( len(use_month) == 0 ):
+			use_month = MONTHS[this_month]
+		converted_str = str(use_month) + " " +str(use_year)
+	else:
+		if( this_month == 1 ):
+			use_month = 12
+			use_year = int(this_year) - 1
+		else:
+			use_month = this_month - 1
+			use_year = this_year
+		converted_str = str(MONTHS[use_month]) + " " + str(use_year)
+	return converted_str
+
+
+def main(argv):
+	global SVER
+	parse_patterns = []
+	spec_ver = 0
+	count = 0
+	date_updated = ''
+	SAID_WIDTH = 5
+
+	try:
+		(optlist, args) = getopt.gnu_getopt(argv[1:], "h")
+	except getopt.GetoptError as exc:
+		title()
+		print("Error:", exc, file=sys.stderr)
+		print("\n")
+		usage()
+		sys.exit(2)
+	for opt in optlist:
+		if opt[0] in {"-h"}:
+			title()
+			usage()
+			sys.exit(0)
+	if len(args) > 0:
+		given_date = '-'.join(args)
+	else:
+		given_date = ''
+
+	title()
+	# Check if we are in a github directory for 
+	cwd = os.getcwd()
+	repo_name = os.path.basename(cwd)
+	git_dir = cwd + "/.git"
+	spec_file = cwd + '/spec/' + repo_name + ".spec"
+	spec_ver = get_spec_ver(spec_file)
+	date_updated = convert_date(given_date)
+
+	if not os.path.isdir(git_dir):
+		print("Error: Not a GitHub directory")
+		sys.exit(1)
+	elif not os.path.exists(spec_file):
+		print("Error: File not found - " + spec_file)
+		print("Change to GitHub repository directory and try again\n")
+		sys.exit(1)
+
+	parse_patterns = parse_patterns + get_local_patterns()
+	parse_patterns = parse_patterns + get_committed_patterns()
+	print()
+
+	saids = []
+	if( len(parse_patterns) > 0 ):
+		for this_pattern in parse_patterns:
+			parts = this_pattern.split('_')
+			said = ":".join([parts[-4], parts[-3]])
+			saids.append(said)
+		count = len(saids)
+		print("- Changes in version " + str(spec_ver))
+		print("  - New security announcement patterns as of " + date_updated + " (" + str(count) + "):")
+		for x in range(0, len(saids), SAID_WIDTH):
+			row = saids[x:x+SAID_WIDTH]
+			print("    " + " ".join(row))
+		print("\nNew security announcement patterns as of " + date_updated + " (" + str(count) + ")")
+	else:
+		print("No security patterns found for the change log\n")
+	print()
+
+# Entry point
+if __name__ == "__main__":
+	main(sys.argv)
 
