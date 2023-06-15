@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-SVER = '2.0.6'
+SVER = '2.0.7'
 ##############################################################################
 # sagen.py - Security Advisory Announcement Pattern Generator
 # Copyright (C) 2022-2023 SUSE LLC
 #
 # Description:  Creates a python security advisory pattern from HTML page
-# Modified:     2023 Jun 12
+# Modified:     2023 Jun 15
 #
 ##############################################################################
 #
@@ -255,6 +255,9 @@ class SecurityAnnouncement():
 		LIMIT_HIGH = 10
 		LIMIT_LOW = 3
 		info = info.lstrip('* ')
+		if " " in info:
+			# Package names don't include spaces
+			return False
 		pkg_parts = info.split('-')
 		pkg_parts_len = len(pkg_parts)
 		msg.debug(" Package:", str(info) + " => (" + str(pkg_parts_len) + ") " + str(pkg_parts))
@@ -266,6 +269,7 @@ class SecurityAnnouncement():
 			self.this_package_list['packages'][pkg_name] = pkg_version
 			return True
 		else:
+			# This was not a package
 			return False
 
 	def __get_package_lists(self):
